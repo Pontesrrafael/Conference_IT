@@ -47,7 +47,8 @@ final class PatrimoniosSga {
                 }
                 if($fonte==='sga') {
                     $scope=Requisitantes::lista(); $ccScope=CentrosCusto::lista();
-                    $purchases=DB::all('SELECT c.origem_item_id FROM compras_origem c LEFT JOIN centros_custo cc ON cc.id=c.centro_custo_compra_id WHERE c.requisitante_codigo IN ('.implode(',',array_fill(0,count($scope),'?')).')'.($ccScope?' OR cc.sga_codigo IN ('.implode(',',array_fill(0,count($ccScope),'?')).')':''),[...$scope,...$ccScope]);
+                    [$scopeSql,$scopeArgs]=CentrosCusto::condicaoLocal('c.requisitante_codigo','c.centro_custo_compra_id');
+                    $purchases=DB::all('SELECT c.origem_item_id FROM compras_origem c WHERE '.$scopeSql,$scopeArgs);
                     $purchaseIds=array_column($purchases,'origem_item_id');
                     $missing=DB::all('SELECT id,candidatos_json,payload_json FROM patrimonios_sga WHERE imobilizado_item_id NOT IN ('.implode(',',array_fill(0,count($seen),'?')).')',$seen);
                     foreach($missing as $stage) {

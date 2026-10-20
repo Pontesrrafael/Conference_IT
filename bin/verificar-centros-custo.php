@@ -69,12 +69,22 @@ try {
   $check(!str_contains($sql,'{{') && !str_contains($sql,'IPCOFUNREQ IN (') && !str_contains($sql,'IPCOCC IN ('),'Documento manteve filtro de escopo.');
   return [['origem_item_id'=>1,'processo_id'=>5,'empresa_id'=>1]];
  });
+ // 8b. Escopo só por centro de custo: requisitantes podem ser todos removidos enquanto houver CC.
+ foreach(R::lista() as $rid) R::remover($rid);
+ $check(R::lista()===[],'Não foi possível deixar o escopo só por centro de custo.');
+ $sql=R::aplicarSql(file_get_contents($source.'/database/queries/minerion_coleta.sql'));
+ $check(str_contains($sql,'IPCOFUNREQ IN (-1) OR i.IPCOCC IN (900,901,902,903,950)'),'Consulta só por CC incorreta.');
+ $row['centro_custo_compra_id']=950; $row['requisitante_id']=756; $check(isset(Minerion::resumir([$row])[756]),'Linha do CC recusada sem requisitantes.');
+ $row['centro_custo_compra_id']=0; $reject(fn()=>Minerion::resumir([$row]),'Linha sem CC aceita no escopo só por CC.');
+ CC::remover(900,$sga); $reject(fn()=>CC::remover(950,$sga),'Último CC removido com escopo de requisitantes vazio.');
+ $check(CC::lista()===[950],'Recusa alterou os centros de custo.');
+ R::adicionar(756,fn($q)=>[['codigo'=>756,'nome'=>'Sintético']]); CC::adicionar('900',true,$sga);
  // 9. Remoção seletiva e retorno ao sentinela.
  $r=CC::remover(900,$sga); $check($r['removido'] && CC::lista()===[950],'Remoção com filhos incorreta.');
  $check(!CC::remover(900,$sga)['removido'],'Remoção repetida alterou a lista.');
  CC::remover(950,$sga); $check(CC::lista()===[] && str_contains(R::aplicarSql(file_get_contents($source.'/database/queries/minerion_coleta.sql')),'IPCOCC IN (-1)'),'Sentinela não restaurado.');
  foreach($queries as $q) $check(!preg_match('/;|--|\bUPDATE\b|\bDELETE\b|\bINSERT\b/i',$q),'Consulta não somente leitura gerada: '.$q);
- echo "OK: centros de custo — sentinela -1, validação, CC inexistente, inclusão simples/bloqueado, filhos por CCSTCOD, repetição, limite de linhas sem efeito colateral, novo filho na sincronização, importação e patrimônio pelo CC, CC 0 recusado, documentos sem filtro, remoção seletiva e consultas somente leitura. Dados sintéticos isolados.\n";
+ echo "OK: centros de custo — sentinela -1, validação, CC inexistente, inclusão simples/bloqueado, filhos por CCSTCOD, repetição, limite de linhas sem efeito colateral, novo filho na sincronização, importação e patrimônio pelo CC, CC 0 recusado, documentos sem filtro, escopo só por CC (requisitantes vazios, último CC protegido), remoção seletiva e consultas somente leitura. Dados sintéticos isolados.\n";
 } finally {
  foreach(glob($temp.'/storage/*')?:[] as $f) unlink($f);
  foreach(glob($temp.'/database/queries/*')?:[] as $f) unlink($f);

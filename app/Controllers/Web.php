@@ -85,9 +85,18 @@ final class Web {
                     if($filter==='pendentes') $where.=" AND c.triagem='pendente' AND c.vinculos_nf_positivos>0";
                     if($filter==='incluidas') $where.=" AND c.triagem='incluir'";
                     if(!$escopoTodos) { [$scopeSql,$scopeArgs]=CentrosCusto::condicaoLocal('c.requisitante_codigo','c.centro_custo_compra_id'); $where.=' AND '.$scopeSql; $p=[...$p,...$scopeArgs]; }
+                    // Origem no escopo: um requisitante ou um centro de custo configurado (com filhos pelo caminho CCSTCOD gravado na coleta).
+                    $origem=(string)($_GET['origem']??''); $ccConfig=CentrosCusto::config()['centros']; $reqNomes=[];
+                    foreach(Requisitantes::lista() as $rid) $reqNomes[$rid]=(DB::one('SELECT nome FROM requisitantes_sga WHERE codigo=?',[$rid])['nome']??'Requisitante');
+                    if(preg_match('/^req:(\d{1,10})$/D',$origem,$m) && isset($reqNomes[(int)$m[1]])) { $where.=' AND c.requisitante_codigo=?'; $p[]=(int)$m[1]; }
+                    elseif(preg_match('/^cc:(\d{1,10})$/D',$origem,$m) && ($sel=array_values(array_filter($ccConfig,static fn($c)=>$c['codigo']===(int)$m[1])))) {
+                        $where.=$sel[0]['incluir_filhos']?" AND (cc.sga_codigo=? OR JSON_UNQUOTE(JSON_EXTRACT(c.payload_json,'$.centro_custo_compra_caminho')) LIKE ?)":' AND cc.sga_codigo=?';
+                        $p[]=(int)$m[1]; if($sel[0]['incluir_filhos']) $p[]='%+'.(int)$m[1].'+%';
+                    } else $origem='';
+                    $params+=['origem'=>$origem,'origemReq'=>$reqNomes,'origemCc'=>$ccConfig,'ccEscopo'=>CentrosCusto::lista()];
                     $base=' FROM compras_origem c JOIN produtos p ON p.id=c.produto_id JOIN requisitantes_sga r ON r.codigo=c.requisitante_codigo LEFT JOIN centros_custo cc ON cc.id=c.centro_custo_compra_id';
                     $total=(int)DB::one('SELECT COUNT(*) n'.$base.$where,$p)['n']; $page=max(1,min((int)($_GET['pagina']??1),max(1,(int)ceil($total/40))));
-                    $params+=['q'=>$q,'filter'=>$filter,'total'=>$total,'page'=>$page,'rows'=>DB::all('SELECT c.*,p.nome produto,p.controle,p.unidade,p.categoria,r.nome requisitante,cc.nome cc_nome'.$base.$where.' ORDER BY c.processo_data DESC,c.id DESC LIMIT 40 OFFSET '.(($page-1)*40),$p)];
+                    $params+=['q'=>$q,'filter'=>$filter,'total'=>$total,'page'=>$page,'rows'=>DB::all('SELECT c.*,p.nome produto,p.controle,p.unidade,p.categoria,r.nome requisitante,cc.nome cc_nome,cc.sga_codigo cc_sga'.$base.$where.' ORDER BY c.processo_data DESC,c.id DESC LIMIT 40 OFFSET '.(($page-1)*40),$p)];
                     $params['projetosSelect']=DB::all("SELECT id,CONCAT(codigo,' · ',nome) nome FROM projetos WHERE status<>'arquivado' ORDER BY nome");
                     $params['rateiosPorCompra']=[];
                     $ids=array_column($params['rows'],'id');

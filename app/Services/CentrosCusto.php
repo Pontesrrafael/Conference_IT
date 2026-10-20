@@ -88,6 +88,7 @@ final class CentrosCusto {
             $antes=count($c['centros']);
             $c['centros']=array_values(array_filter($c['centros'],static fn(array $cc):bool=>$cc['codigo']!==$id));
             $removido=count($c['centros'])!==$antes;
+            if($removido && !$c['centros'] && !Requisitantes::lista()) throw new RuntimeException('Mantenha pelo menos um requisitante ou um centro de custo na consulta.');
             if($removido) $c['expandidos']=$c['centros']?self::expandir($c['centros'],$reader):[];
             return $c;
         });
@@ -114,9 +115,10 @@ final class CentrosCusto {
     public static function condicaoLocal(string $colRequisitante,string $colCentroCustoLocal): array {
         foreach([$colRequisitante,$colCentroCustoLocal] as $col) if(!preg_match('/^[a-z_][a-z0-9_.]*$/D',$col)) throw new RuntimeException('Coluna de escopo inválida.');
         $req=Requisitantes::lista(); $cc=self::lista();
-        $sql='('.$colRequisitante.' IN ('.implode(',',array_fill(0,count($req),'?')).')';
-        if($cc) $sql.=' OR '.$colCentroCustoLocal.' IN (SELECT id FROM centros_custo WHERE sga_codigo IN ('.implode(',',array_fill(0,count($cc),'?')).'))';
-        return [$sql.')',[...$req,...$cc]];
+        $parts=[];
+        if($req) $parts[]=$colRequisitante.' IN ('.implode(',',array_fill(0,count($req),'?')).')';
+        if($cc) $parts[]=$colCentroCustoLocal.' IN (SELECT id FROM centros_custo WHERE sga_codigo IN ('.implode(',',array_fill(0,count($cc),'?')).'))';
+        return [$parts?'('.implode(' OR ',$parts).')':'(1=0)',[...$req,...$cc]];
     }
     /** Registro de patrimônio (payload SGA) ligado ao escopo atual por requisitante ou CC candidato. */
     public static function patrimonioNoEscopo(array $payload): bool {

@@ -18,8 +18,9 @@ final class Requisitantes {
     }
     public static function aplicarSql(string $sql,?array $ids=null): string {
         $ids=$ids??self::lista();
-        if(!$ids) throw new RuntimeException('Selecione pelo menos um requisitante.');
-        return CentrosCusto::aplicarSql(str_replace('{{REQUISITANTES_SGA}}',implode(',',array_map([self::class,'validar'],$ids)),$sql));
+        if(!$ids && !CentrosCusto::lista()) throw new RuntimeException('Configure pelo menos um requisitante ou um centro de custo.');
+        // -1 não coincide com nenhum FUNCOD: escopo só por centro de custo.
+        return CentrosCusto::aplicarSql(str_replace('{{REQUISITANTES_SGA}}',$ids?implode(',',array_map([self::class,'validar'],$ids)):'-1',$sql));
     }
     public static function remover(mixed $value): array {
         $id=self::validar($value);
@@ -30,7 +31,7 @@ final class Requisitantes {
             $before=self::lista();
             $ids=array_values(array_filter($before,static fn(int $v):bool=>$v!==$id));
             $removed=count($ids)!==count($before);
-            if(!$ids) throw new RuntimeException('Mantenha pelo menos um requisitante na consulta.');
+            if(!$ids && !CentrosCusto::config()['centros']) throw new RuntimeException('Mantenha pelo menos um requisitante ou um centro de custo na consulta.');
             if($removed) {
                 $file=ROOT.'/storage/requisitantes.json';
                 if(file_put_contents($file.'.tmp',json_encode($ids,JSON_THROW_ON_ERROR),LOCK_EX)===false || !rename($file.'.tmp',$file)) throw new RuntimeException('Não foi possível salvar os requisitantes.');

@@ -106,8 +106,8 @@ final class Integracao {
                 }
                 if($fonte==='sga') {
                     $scope=$permitidos;
-                    $ccClause=$centrosEscopo?' OR centro_custo_compra_id IN (SELECT id FROM centros_custo WHERE sga_codigo IN ('.implode(',',array_fill(0,count($centrosEscopo),'?')).'))':'';
-                    DB::run('UPDATE compras_origem SET origem_presente=0,conciliacao_pendente=1 WHERE ultima_sincronizacao_id<>? AND entrada_documento=0 AND (requisitante_codigo IN ('.implode(',',array_fill(0,count($scope),'?')).')'.$ccClause.')',[$id,...$scope,...$centrosEscopo]);
+                    [$scopeSql,$scopeArgs]=CentrosCusto::condicaoLocal('requisitante_codigo','centro_custo_compra_id');
+                    DB::run('UPDATE compras_origem SET origem_presente=0,conciliacao_pendente=1 WHERE ultima_sincronizacao_id<>? AND entrada_documento=0 AND '.$scopeSql,[$id,...$scopeArgs]);
                 }
                 DB::run("UPDATE sincronizacoes SET situacao='concluida',fim=NOW(),linhas_lidas=? WHERE id=?",[count($rows),$id]);
                 DB::audit('sincronizacoes',$id,'importar',null,['fonte'=>$fonte,'linhas'=>count($rows)],$actor);
