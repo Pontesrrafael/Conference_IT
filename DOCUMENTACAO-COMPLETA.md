@@ -1,5 +1,7 @@
 # Salinas TI — documentação completa e estado atual
 
+**Revisão da documentação e publicação:** 20/10/2026.
+
 **Referência do levantamento:** 19/10/2026, 23:18:58, horário de Cuiabá (UTC−04:00). Os totais operacionais abaixo são uma fotografia dessa consulta e mudam com o uso.
 
 ## 1. Objetivo e escopo
@@ -342,7 +344,9 @@ Repositório escolhido: **Pontesrrafael/salinas-ti**, privado. Branch inicial: `
 
 Excluídos: `.env`, credenciais iniciais, `storage` operacional, banco, backups, logs, sessões, mapas reais, coletas e evidências internas. Incluídos: código, migrações, consultas, scripts, documentação, logos oficiais e fontes com a licença existente. A marca continua sendo da Salinas Gold e o repositório não concede licença de software livre implicitamente.
 
-O primeiro commit e o estado confirmado da publicação serão informados ao finalizar a entrega. A URL neste documento identifica o destino planejado; só a confirmação do envio comprova que o repositório está publicado.
+Publicação inicial confirmada na branch `main`: commit `d5d3d5ca207e0a02831963ad7cef762c08ff4c40`. O envio foi concluído e o hash local foi comparado com `refs/heads/main` no GitHub. Esta revisão documental registra essa confirmação; os commits posteriores de documentação aparecem no histórico do repositório.
+
+O primeiro envio contém 85 arquivos revisados. A verificação de publicação não encontrou os segredos da instalação nem arquivos operacionais na cópia preparada. O `.gitignore` mantém essas exclusões para novos commits. O teste portátil e a sintaxe PHP/JavaScript passaram antes da publicação.
 
 ## 14. Referências
 
