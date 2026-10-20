@@ -66,6 +66,23 @@ final class Pdf {
         $op=$preench&&$borda?'B':($preench?'f':'S');
         $this->pages[$this->atual].=($preench?$this->cor($preench,true).' ':'').($borda?$this->cor($borda,false).' '.sprintf('%.2F w ',$esp):'').sprintf("%.2F %.2F %.2F %.2F re %s\n",$x,$this->altura-$y-$h,$w,$h,$op);
     }
+    /** Polígono preenchido; pontos em coordenadas de cima para baixo: [[x,y],[x,y],...]. */
+    public function poligono(array $pontos,array $rgb): void {
+        if(count($pontos)<3) return;
+        $ops=[]; foreach(array_values($pontos) as $i=>[$x,$y]) $ops[]=sprintf('%.2F %.2F %s',$x,$this->altura-$y,$i===0?'m':'l');
+        $this->pages[$this->atual].=$this->cor($rgb,true).' '.implode(' ',$ops)." h f\n";
+    }
+    /**
+     * Texto girado 90° (lido de baixo para cima), como a razão social na faixa lateral do timbrado.
+     * $x é a linha de base (as letras ficam à esquerda dela); centralizado verticalmente em torno de $yCentro.
+     */
+    public function textoVertical(float $x,float $yCentro,string $utf8,float $tam=7,bool $negrito=false,array $rgb=[33,33,33],float $espacamento=0): void {
+        if($this->atual<0) throw new RuntimeException('PDF sem página.');
+        $cp=self::cp1252($utf8);
+        $w=$this->larguraTexto($utf8,$tam,$negrito)+$espacamento*max(0,strlen($cp)-1);
+        $s=strtr($cp,['\\'=>'\\\\','('=>'\\(',')'=>'\\)']);
+        $this->pages[$this->atual].=sprintf("BT %s /%s %.2F Tf %.2F Tc 0 1 -1 0 %.2F %.2F Tm (%s) Tj 0 Tc ET\n",$this->cor($rgb,true),$negrito?'F2':'F1',$tam,$espacamento,$x,$this->altura-($yCentro+$w/2),$s);
+    }
     public function linha(float $x1,float $y1,float $x2,float $y2,array $rgb=[200,200,200],float $esp=0.5): void {
         $this->pages[$this->atual].=sprintf("%s %.2F w %.2F %.2F m %.2F %.2F l S\n",$this->cor($rgb,false),$esp,$x1,$this->altura-$y1,$x2,$this->altura-$y2);
     }

@@ -26,19 +26,25 @@ A regra de valor é a mesma do Painel (`Parque::SQL_COMPRAS`): custo pelo pedido
    3. roda a sincronização completa com o SGA;
    4. abre o relatório já com os CCs novos selecionados.
 5. **Exportar CSV** gera o resumo por CC, o total geral e todas as linhas do filtro atual, com BOM UTF-8 e proteção contra fórmulas de planilha.
-6. **Exportar PDF** gera o mesmo relatório em PDF (A4 paisagem), pronto para enviar ou imprimir. Ele contém:
-   - cabeçalho verde com o **logotipo oficial Salinas Gold** sobre placa branca e linha amarela;
+6. **Exportar PDF** gera o mesmo relatório em PDF (A4 paisagem), pronto para enviar ou imprimir, no padrão do **timbrado oficial** (`MODELO - TIMBRADO.docx`). Ele contém:
+   - topo com o **logotipo oficial Salinas Gold** direto sobre o fundo branco (sem faixa verde nem placa), título e período à direita;
+   - **faixa amarela lateral** (direita) com "SALINAS GOLD MINERAÇÃO · CNPJ: 03.212.955/0001-09" em texto vertical;
+   - **rodapé do timbrado**: linha verde, marcadores amarelos com os endereços de Nossa Senhora do Livramento/MT e do escritório de Cuiabá/MT e listras diagonais verdes na base;
    - período, data e hora de emissão (Horário de Mato Grosso – UTC-4) e usuário;
    - cartões de resumo;
    - tabelas por CC, mensal e linhas de compra (até 2.000; o CSV traz todas);
    - cabeçalho de tabela repetido a cada página;
-   - rodapé com a ressalva de custo e "Página X de Y".
+   - ressalva de custo e "Página X de Y" logo acima da linha verde do rodapé.
 
 ## PDF: como é gerado
 
 - Gerado no próprio servidor, em PHP puro (`app/Services/Pdf.php` e `RelatorioPdf.php`), **sem bibliotecas nem composer**. Funciona no XAMPP com as extensões já exigidas (mbstring; iconv e zlib quando disponíveis).
 - Fonte padrão do PDF (Helvetica), com acentos do português via Windows-1252. A fonte institucional Author não é incorporada.
-- Logotipo: `app/Assets/logo-salinas-gold-pdf.png`, cópia do arquivo oficial `public/assets/brand/salinas-gold-horizontal.png` aplicada sem alteração de cor sobre fundo branco e reduzida para 1.200 px. Se o logotipo oficial mudar, recrie a cópia com `python bin/gerar-logo-pdf.py` (Pillow). A imagem entra uma vez no arquivo e é reaproveitada em todas as páginas.
+- Imagens (geradas por `python bin/gerar-logo-pdf.py`, Pillow; cada uma entra uma vez no arquivo e é reaproveitada em todas as páginas):
+  - `app/Assets/logo-salinas-gold-pdf.png`: cópia do logotipo oficial `public/assets/brand/salinas-gold-horizontal.png`, sem alteração de cor, 1.200 px;
+  - `app/Assets/pin-endereco-pdf.png`: marcador de endereço do timbrado (`public/assets/brand/pin-endereco.png`, extraído do modelo) sobre o quadrado amarelo #FFCD00.
+- Faixa lateral, linha verde e listras são desenhadas em vetor (nítidas em qualquer zoom e impressão). Razão social, CNPJ e endereços ficam em `RelatorioPdf::RAZAO_SOCIAL`, `CNPJ` e `ENDERECOS`: se o timbrado mudar, altere ali.
+- Diferenças em relação ao modelo Word: o modelo é A4 retrato e usa as fontes Author/Poppins; o relatório usa **A4 paisagem** (as tabelas têm até 8 colunas) e Helvetica, a fonte padrão do PDF.
 
 ## Permissões
 
@@ -56,7 +62,7 @@ CC 1290 (P2026_44 - Rede de fibra óptica - Central): 21 linhas, 20 com NF, **R$
 
 ## Testes
 
-- `php bin/verificar-relatorio-pdf.php` (portátil): métricas, corte de texto, Windows-1252, estrutura do PDF (tabela xref), paginação com cabeçalho e rodapé, totais, escapes e logotipo único em todas as páginas.
+- `php bin/verificar-relatorio-pdf.php` (portátil): métricas, corte de texto, Windows-1252, estrutura do PDF (tabela xref), paginação, totais, escapes e elementos do timbrado em todas as páginas (logotipo e marcadores incorporados uma vez, faixa lateral com CNPJ, endereços e listras).
 
 - `php bin/verificar-centros-custo.php` (portátil): leitura dos códigos novos (vírgula, ponto e vírgula e espaço), repetição, valores inválidos e limite de 20 códigos.
-- `php bin/verificar-ponta-a-ponta.php`: tela, período, totais por CC, CSV com proteção, PDF com logotipo, geração sem sincronizar, código inválido e bloqueio do perfil consulta.
+- `php bin/verificar-ponta-a-ponta.php`: tela, período, totais por CC, CSV com proteção, PDF no timbrado (duas imagens), geração sem sincronizar, código inválido e bloqueio do perfil consulta.

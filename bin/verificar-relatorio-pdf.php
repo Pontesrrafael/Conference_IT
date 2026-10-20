@@ -28,8 +28,13 @@ try {
     $check(str_contains($conteudo,'(R$ 1.000,50)') && str_contains($conteudo,'(Total geral \\(sem dupla contagem\\))'),'Totais ou escape de parênteses ausentes.');
     $check(substr_count($conteudo,'(P'."\xE1".'gina ')===$paginas && str_contains($conteudo,"(P\xE1gina $paginas de $paginas)"),'Rodapé de paginação incorreto.');
     $check(str_contains($conteudo,'(Item sint'."\xE9".'tico \\(teste\\) \\\\ 149)'),'Escape de barra invertida ou última linha ausente.');
-    // Logotipo oficial incorporado uma única vez e desenhado em todas as páginas.
-    $check(substr_count($pdf,'/Subtype /Image')===1 && str_contains($pdf,'/Predictor 15') && substr_count($conteudo,'/Im1 Do')===$paginas,'Logotipo ausente ou duplicado no PDF.');
+    // Timbrado: logotipo e marcador de endereço incorporados uma única vez; logotipo em todas as páginas e dois marcadores por página.
+    $check(substr_count($pdf,'/Subtype /Image')===2 && str_contains($pdf,'/Predictor 15') && substr_count($conteudo,'/Im1 Do')===$paginas && substr_count($conteudo,'/Im2 Do')===2*$paginas,'Logotipo ou marcadores do timbrado ausentes ou duplicados no PDF.');
+    // Faixa amarela lateral com razão social e CNPJ em texto vertical (matriz de rotação 90°) e rodapé com os dois endereços em todas as páginas.
+    $check(substr_count($conteudo,'0 1 -1 0 ')===$paginas && substr_count($conteudo,'CNPJ: 03.212.955/0001-09')===$paginas,'Faixa lateral do timbrado (razão social e CNPJ) ausente.');
+    $check(substr_count($conteudo,'(Nossa Senhora do Livramento/MT)')===$paginas && substr_count($conteudo,"(Escrit\xF3rio Cuiab\xE1/MT)")===$paginas,'Endereços do rodapé do timbrado ausentes.');
+    $check(substr_count($conteudo,' h f')>=10*$paginas,'Listras diagonais do rodapé ausentes.');
+    $check(!str_contains($conteudo,'0.008 0.294 0.216 rg 0.00 '.sprintf('%.2F',595.28-64)),'Faixa verde do cabeçalho antigo ainda presente.');
     try { (new Pdf())->imagemPng(ROOT.'/public/assets/brand/salinas-gold-horizontal.png',0,0,10); $check(false,'PNG com transparência aceito sem conversão.'); } catch(RuntimeException $e) { $check(str_contains($e->getMessage(),'PDF'),'Erro inesperado no PNG.'); }
-    echo "OK: relatório PDF — logotipo em todas as páginas, métricas, corte de texto, Windows-1252, estrutura xref, $paginas páginas com cabeçalho/rodapé, totais, escapes e última linha. Dados sintéticos.\n";
+    echo "OK: relatório PDF — timbrado oficial (logotipo, faixa lateral com CNPJ, endereços e listras) em todas as páginas, métricas, corte de texto, Windows-1252, estrutura xref, $paginas páginas com cabeçalho/rodapé, totais, escapes e última linha. Dados sintéticos.\n";
 } catch(Throwable $e) { fwrite(STDERR,'FALHOU: '.$e->getMessage().PHP_EOL); exit(1); }

@@ -1,6 +1,6 @@
 # Salinas TI — documentação completa e estado atual
 
-**Revisão da documentação:** 20/10/2026, 11:15 (Horário de Mato Grosso – UTC-4), com verificação no navegador da instalação local (seção 11.4). Inclui requisitantes e centros de custo configuráveis, telas filtradas pelo escopo atual (seção 6.5) e a verificação geral (seção 11.3). Histórico na seção 15.
+**Revisão da documentação:** 20/10/2026, 14:00 (Horário de Mato Grosso – UTC-4), com verificação no navegador da instalação local (seção 11.4). Inclui requisitantes e centros de custo configuráveis, telas filtradas pelo escopo atual (seção 6.5) e a verificação geral (seção 11.3). Histórico na seção 15.
 
 **Referência do levantamento:** 19/10/2026, 23:18:58, horário de Cuiabá (UTC−04:00). Os totais operacionais abaixo são uma fotografia dessa consulta e mudam com o uso.
 
@@ -95,9 +95,10 @@ app/
     Requisitantes.php           escopo de requisitantes (storage/requisitantes.json)
     CentrosCusto.php            escopo por centro de custo, filhos e limites (storage/centros-custo.json)
     Relatorios.php              relatórios de gastos por CC e período, CCs novos + sincronização
-    RelatorioPdf.php            layout do relatório em PDF (logotipo, resumo, tabelas paginadas)
-    Pdf.php                     gerador de PDF sem dependências (Helvetica/WinAnsi, PNG)
+    RelatorioPdf.php            layout do relatório em PDF no timbrado oficial (logotipo, faixa lateral, rodapé com endereços)
+    Pdf.php                     gerador de PDF sem dependências (Helvetica/WinAnsi, PNG, polígonos, texto vertical)
   Assets/logo-salinas-gold-pdf.png  cópia do logotipo oficial para o PDF (bin/gerar-logo-pdf.py)
+  Assets/pin-endereco-pdf.png       marcador de endereço do timbrado para o PDF (bin/gerar-logo-pdf.py)
     Periodo.php                 filtros de datas
     Parque.php                  custos e situação do parque
     Mapas.php                   uploads, áreas, vínculos e GeoJSON
@@ -195,7 +196,7 @@ Menu **Relatórios** (`/relatorios`). Mostra gastos por centro de custo e por pe
 - tabela por CC (pedido, com NF, sem patrimônio, patrimônios e bens sem número);
 - evolução mensal;
 - linhas de compra;
-- exportação CSV e **PDF com o logotipo oficial** (A4 paisagem, paginado, gerado no servidor sem bibliotecas).
+- exportação CSV e **PDF no timbrado oficial da Salinas** (logotipo sobre fundo branco, faixa amarela lateral com razão social e CNPJ, rodapé com endereços e listras; A4 paisagem, paginado, gerado no servidor sem bibliotecas).
 
 Detalhes, permissões e referência de valores em [Relatórios](RELATORIOS.md).
 
@@ -420,6 +421,15 @@ Os 18 ativos associados vêm do CC 802.
 
 Na transferência para o computador, o PNG do logotipo recebeu um bloco extra de metadados de procedência (`caBX`). Os dados da imagem são idênticos (IDAT conferido) e o gerador ignora esse bloco.
 
+**14:00 — PDF no timbrado oficial.** Escopo atual: CCs 802 e 1290 (com filhos), sem requisitantes. Sincronização às 13:57: **421 compras**; patrimônios **18 associados, 4 ambíguos, 36 sem número**. PDF do CC 1290 (todo o histórico) baixado da instalação:
+- `application/pdf`, 150 KB, 2 páginas, `%%EOF` presente;
+- 2 imagens incorporadas uma vez cada (logotipo e marcador de endereço);
+- "SALINAS GOLD MINERAÇÃO · CNPJ: 03.212.955/0001-09" e os dois endereços em **todas** as páginas;
+- faixa verde antiga do cabeçalho ausente;
+- valores R$ 115.085,10 (pedido) e R$ 114.845,10 (com NF), iguais ao SGA.
+
+O Chrome abre o PDF no visualizador interno, que a automação não consegue capturar em imagem. A conferência visual foi feita na renderização do mesmo gerador com dados de exemplo.
+
 Ajustes feitos depois dessa verificação:
 - O painel **Atualizar compras** dizia só "Consulta os requisitantes configurados: 768", o que dava a impressão de que o CC fora ignorado. Agora mostra também os CCs.
 - A tela **Patrimônios** ganhou a lista **Bens do imobilizado sem número de patrimônio**, filtrada pelo escopo, com descrição, NF, valor, compra e CC do bem.
@@ -443,6 +453,7 @@ Ajustes feitos depois dessa verificação:
 | Escopo por CC | Validar na interface com a VPN: incluir 1241, sincronizar e conferir as 110 linhas extras. Definir os CCs oficiais da TI. |
 | Bens sem número no SGA | 16 bens do escopo estão no imobilizado sem número de patrimônio (7 do CC 1290, rede óptica). Pedir à Contabilidade/Patrimônio o registro dos números e sincronizar de novo. |
 | Sincronização com SSL | Em 20/10 a ponte SQL Server falhou com "cadeia de certificação não confiável" e a conexão foi salva **sem SSL**. Para homologar: reativar SSL e marcar "Confiar no certificado" (teste) ou instalar a CA do servidor SQL (produção). |
+| PDF no timbrado | Validar o layout com a Comunicação/Marketing (A4 paisagem e Helvetica, enquanto o modelo Word é retrato com Author/Poppins). Se o timbrado mudar, atualizar `RelatorioPdf::ENDERECOS`/`CNPJ` e rodar `bin/gerar-logo-pdf.py`. |
 
 Esse estado é uma base funcional para testes, não comprovação de aceite de produção. Funcionalidade implementada e teste sintético aprovado não substituem conferência da rede, dos dados físicos ou das regras da operação.
 
@@ -476,6 +487,7 @@ Guias específicos incluídos: [Relatórios](RELATORIOS.md), [Centros de custo S
 | 20/10/2026 | **Escopo por centro de custo** (união com requisitantes, filhos por `CCSTCOD`, limites 300 CCs / 5.000 linhas, auditoria, tela) | `CentrosCusto.php`, `Web.php`, `app.php`, `Minerion.php`, `PatrimoniosSga.php`, `DocumentosCompra.php`, consultas SQL |
 | 20/10/2026 | Verificação geral: novos testes `verificar-centros-custo` e `verificar-ponta-a-ponta`; correção de `bin/coletar.php` e do caminho fixo do Python | `bin/`, `Mapas.php` |
 | 20/10/2026 09:20 | Verificação no navegador e sincronização do escopo 768: 196 compras, 3 ativos associados, 12 ambíguos, 9 sem número (seção 11.4) | — |
+| 20/10/2026 14:00 | **PDF no timbrado oficial** (`MODELO - TIMBRADO.docx`): sai a faixa verde com o logotipo em placa branca; entram o logotipo direto sobre o fundo branco, a faixa amarela lateral com razão social e CNPJ em texto vertical e o rodapé com linha verde, marcadores e endereços (Nossa Senhora do Livramento/MT e Cuiabá/MT) e listras diagonais. Faixa, linha e listras em vetor. `Pdf.php` ganhou polígono preenchido e texto vertical. Testes atualizados; ponta a ponta com 69 verificações | `Pdf.php`, `RelatorioPdf.php`, `Assets/pin-endereco-pdf.png`, `gerar-logo-pdf.py`, `RELATORIOS.md`, testes |
 | 20/10/2026 11:15 | **Relatório em PDF** com o **logotipo oficial** (placa branca na faixa verde, como na interface), A4 paisagem, cartões, tabelas paginadas com cabeçalho repetido e rodapé "Página X de Y". Gerado em PHP puro, sem bibliotecas. Teste portátil `verificar-relatorio-pdf`; ponta a ponta com 69 a 72 verificações | `Pdf.php`, `RelatorioPdf.php`, `Assets/`, `gerar-logo-pdf.py`, `Web.php`, `relatorios.php`, testes |
 | 20/10/2026 10:50 | **Relatórios** por centro de custo e período: seleção múltipla, CCs novos conferidos no SGA (todos antes de alterar), inclusão no escopo e sincronização antes do relatório, resumo sem dupla contagem, mensal, detalhe e CSV. Consulta SQL validada no SGA. Ponta a ponta com 68 a 70 verificações | `Relatorios.php`, `relatorios.php`, `Web.php`, `app.php`, `Parque.php`, `RELATORIOS.md`, testes |
 | 20/10/2026 10:40 | **Painel com compras do escopo** (com e sem patrimônio, com NF, bens sem número, tabela por origem) e **filtro por centro de custo/origem** no Painel; CCs efetivos guardados por entrada; filtros de Compras e Painel usam a mesma definição de origem. Ponta a ponta com 60 verificações nos três cenários de escopo | `Parque.php`, `CentrosCusto.php`, `Web.php`, `parque.php`, `periodo.php`, testes |

@@ -2,12 +2,22 @@
 declare(strict_types=1);
 namespace App\Services;
 /**
- * Relatório de gastos por centro de custo em PDF (A4 paisagem), com identidade Salinas Gold
- * (#024B37 verde, #FFCD00 amarelo, #C6D53E verde-claro, #707070 cinza). Fonte padrão do PDF (Helvetica).
+ * Relatório de gastos por centro de custo em PDF (A4 paisagem) no padrão do timbrado oficial Salinas Gold
+ * (MODELO - TIMBRADO.docx): logotipo sobre fundo branco no topo, faixa amarela lateral com razão social e CNPJ,
+ * rodapé com linha verde, endereços com marcador e listras diagonais verdes na base.
+ * Cores: #024B37 verde, #FFCD00 amarelo, #163F31 verde das listras, #747474 cinza do rodapé. Fonte padrão do PDF (Helvetica).
  */
 final class RelatorioPdf {
     public const LIMITE_LINHAS=2000;
-    private const VERDE='#024B37', AMARELO='#FFCD00', VERDE_CLARO='#C6D53E', CINZA='#707070', ZEBRA='#F2F5F3';
+    private const VERDE='#024B37', AMARELO='#FFCD00', VERDE_CLARO='#C6D53E', CINZA='#707070', ZEBRA='#F2F5F3', LISTRA='#163F31', CINZA_RODAPE='#747474';
+    private const FAIXA=22; // faixa amarela lateral (pt)
+    private const LISTRAS=12; // altura das listras diagonais na base (pt)
+    private const LIMITE_INFERIOR=78; // espaço reservado ao rodapé do timbrado (pt)
+    public const RAZAO_SOCIAL='SALINAS GOLD MINERAÇÃO', CNPJ='03.212.955/0001-09';
+    public const ENDERECOS=[
+        ['Nossa Senhora do Livramento/MT','Estrada da Salinas Km 20 Sentido Pirizal -','Zona Rural CEP 78170-000'],
+        ['Escritório Cuiabá/MT','Ed. Advanced Business & Residence, Av. Miguel Sutil, 8800,','12º Andar, Sala 1208 - Duque de Caxias, Cuiabá - MT, 78043-375'],
+    ];
     private Pdf $pdf;
     private float $y=0;
     private const M=36; // margem
@@ -20,24 +30,21 @@ final class RelatorioPdf {
     }
     private static function brl(mixed $v): string { return 'R$ '.number_format((float)$v,2,',','.'); }
     private function c(string $hex): array { return Pdf::hex($hex); }
-    private function larguraUtil(): float { return $this->pdf->largura-2*self::M; }
+    private function direita(): float { return $this->pdf->largura-self::FAIXA-28; }
+    private function larguraUtil(): float { return $this->direita()-self::M; }
 
     private function cabecalho(bool $completo): void {
         $p=$this->pdf; $p->novaPagina();
-        $alt=$completo?64:34;
-        $p->retangulo(0,0,$p->largura,$alt,$this->c(self::VERDE));
-        $p->retangulo(0,$alt,$p->largura,3,$this->c(self::AMARELO));
-        // Logotipo oficial (horizontal) sobre placa branca, como na interface; sem alteração de cor.
-        $placaH=$completo?48:26; $placaY=($alt-$placaH)/2; $pad=$completo?6:3;
-        $logoH=$placaH-2*$pad; $logoW=$logoH*1200/401;
-        $p->retangulo(self::M,$placaY,$logoW+2*$pad+4,$placaH,[255,255,255]);
-        $p->imagemPng(ROOT.'/app/Assets/logo-salinas-gold-pdf.png',self::M+$pad+2,$placaY+$pad,$logoW,$logoH);
-        if($completo) $p->texto(self::M+$logoW+2*$pad+16,$alt/2+4,'Tecnologia da Informação · Parque de TI',9,false,[255,255,255]);
-        $p->texto(0,$completo?30:22,'Relatório de gastos por centro de custo',$completo?13:9,true,[255,255,255],'R',$p->largura-self::M);
-        if($completo) $p->texto(0,46,$this->periodo->rotulo(),9,false,$this->c(self::VERDE_CLARO),'R',$p->largura-self::M);
-        $this->y=$alt+20;
+        // Topo do timbrado: logotipo oficial sobre o próprio fundo branco da página (sem faixa nem placa).
+        $logoH=$completo?36:28; $logoW=$logoH*1200/401;
+        $p->imagemPng(ROOT.'/app/Assets/logo-salinas-gold-pdf.png',self::M,22,$logoW,$logoH);
+        $d=$this->direita();
+        $p->texto(0,$completo?36:38,'Relatório de gastos por centro de custo'.($completo?'':' (continuação)'),$completo?13:9,true,$this->c(self::VERDE),'R',$d);
+        $p->texto(0,$completo?50:50,$this->periodo->rotulo(),$completo?9:7.5,false,$this->c(self::CINZA),'R',$d);
+        $p->retangulo($d-40,$completo?56:55,40,2,$this->c(self::AMARELO));
+        $this->y=$completo?84:76;
     }
-    private function espaco(float $h): void { if($this->y+$h>$this->pdf->altura-48) $this->cabecalho(false); }
+    private function espaco(float $h): void { if($this->y+$h>$this->pdf->altura-self::LIMITE_INFERIOR) $this->cabecalho(false); }
     private function titulo(string $t,string $sub=''): void {
         $this->espaco(40);
         $this->pdf->texto(self::M,$this->y+10,$t,12,true,$this->c(self::VERDE));
@@ -56,7 +63,7 @@ final class RelatorioPdf {
         };
         $this->espaco(32); $cab();
         foreach($linhas as $n=>$cells) {
-            if($this->y+14>$p->altura-48) { $this->cabecalho(false); $cab(); }
+            if($this->y+14>$p->altura-self::LIMITE_INFERIOR) { $this->cabecalho(false); $cab(); }
             $ultima=$negritoUltima && $n===count($linhas)-1;
             if($n%2===1 || $ultima) $p->retangulo(self::M,$this->y,$util,14,$ultima?$this->c('#E6EFE9'):$this->c(self::ZEBRA));
             $x=self::M;
@@ -107,14 +114,37 @@ final class RelatorioPdf {
         $this->tabela([['Data',0.8,'L'],['Produto',3.2,'L'],['Requisitante',1.6,'L'],['Centro de custo',2.2,'L'],['Compra / proc.',1.2,'L'],['Valor do pedido',1.1,'R'],['NF',0.45,'L'],['Patrim.',0.55,'L']],$rows);
         return $this->finalizar();
     }
+    /** Elementos fixos do timbrado, desenhados em todas as páginas depois da paginação. */
+    private function timbrado(int $n,int $tot): void {
+        $p=$this->pdf; $W=$p->largura; $H=$p->altura; $d=$this->direita();
+        // Faixa amarela lateral com razão social e CNPJ em texto vertical.
+        $xF=$W-self::FAIXA;
+        $p->retangulo($xF,0,self::FAIXA,$H-self::LISTRAS-4,$this->c(self::AMARELO));
+        $p->textoVertical($xF+self::FAIXA/2+2.6,($H-self::LISTRAS)/2,self::RAZAO_SOCIAL.'   CNPJ: '.self::CNPJ,7.5,false,$this->c(self::VERDE),1.6);
+        // Ressalva de custo e paginação acima da linha verde.
+        $rodape='Salinas TI · Custo de compra pelo pedido no SGA, não é pagamento nem comprovação fiscal. Totais de parque, compras e projetos não devem ser somados.';
+        $p->texto(self::M,$H-66,$p->ajustar($rodape,6.5,false,$d-self::M-80),6.5,false,$this->c(self::CINZA_RODAPE));
+        $p->texto(0,$H-66,'Página '.$n.' de '.$tot,7,true,$this->c(self::VERDE),'R',$d);
+        $p->linha(self::M-8,$H-58,$d+8,$H-58,$this->c(self::VERDE),0.8);
+        // Endereços com marcador (esquerda e direita), como no rodapé do timbrado.
+        $larg=220;
+        foreach(self::ENDERECOS as $i=>[$local,$l1,$l2]) {
+            $x=$i===0?self::M-4:$d+8-$larg;
+            $p->imagemPng(ROOT.'/app/Assets/pin-endereco-pdf.png',$x,$H-51,11,11);
+            $p->texto($x+16,$H-42,$local,8.5,false,$this->c(self::CINZA_RODAPE));
+            $p->texto($x+16,$H-33,$p->ajustar($l1,6,false,$larg-16),6,false,$this->c(self::CINZA_RODAPE));
+            $p->texto($x+16,$H-25.5,$p->ajustar($l2,6,false,$larg-16),6,false,$this->c(self::CINZA_RODAPE));
+        }
+        // Listras diagonais verdes na base (largura e espaçamento variados, como no timbrado).
+        $topo=$H-self::LISTRAS; $incl=9; $x=4; $padrao=[[15,22],[15,30],[14,24],[15,34],[15,24],[24,40],[15,22],[15,30],[18,26]]; $k=0;
+        while($x<$W) {
+            [$w,$gap]=$padrao[$k++%count($padrao)];
+            $p->poligono([[$x,$topo],[$x+$w,$topo],[$x+$w+$incl,$H],[$x+$incl,$H]],$this->c(self::LISTRA));
+            $x+=$w+$gap;
+        }
+    }
     private function finalizar(): string {
-        $p=$this->pdf; $rodape='Salinas TI · Custo de compra pelo pedido no SGA, não é pagamento nem comprovação fiscal. Totais de parque, compras e projetos não devem ser somados.';
-        $p->emCadaPagina(function(int $n,int $tot) use($p,$rodape): void {
-            $y=$p->altura-28;
-            $p->linha(self::M,$y-10,$p->largura-self::M,$y-10,Pdf::hex(self::VERDE_CLARO),0.6);
-            $p->texto(self::M,$y,$p->ajustar($rodape,7,false,$p->largura-2*self::M-90),7,false,Pdf::hex(self::CINZA));
-            $p->texto(0,$y,'Página '.$n.' de '.$tot,7,true,Pdf::hex(self::VERDE),'R',$p->largura-self::M);
-        });
-        return $p->gerar('Relatório de gastos por centro de custo — '.$this->periodo->rotulo());
+        $this->pdf->emCadaPagina(fn(int $n,int $tot)=>$this->timbrado($n,$tot));
+        return $this->pdf->gerar('Relatório de gastos por centro de custo — '.$this->periodo->rotulo());
     }
 }

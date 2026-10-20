@@ -110,7 +110,7 @@ try {
         $r=$http('GET','/relatorios?cc[]='.$ccEscopo); $check(str_contains($r['body'],'R$ 9.003,00') && str_contains($r['body'],'Cabo sintético'),'Totais do relatório por CC incorretos.');
         $r=$http('GET','/relatorio-exportar?cc[]='.$ccEscopo); $check(str_contains($r['body'],"'=CMD|calc") && str_contains($r['body'],'9003'),'CSV do relatório sem proteção ou sem totais.');
     }
-    $r=$http('GET','/relatorio-pdf?periodo=ano'); $check(($r['headers']['content-type']??'')==='application/pdf' && str_starts_with($r['body'],'%PDF-1.4') && str_contains($r['body'],'/Subtype /Image') && str_contains($r['headers']['content-disposition']??'','.pdf'),'PDF do relatório inválido.');
+    $r=$http('GET','/relatorio-pdf?periodo=ano'); $check(($r['headers']['content-type']??'')==='application/pdf' && str_starts_with($r['body'],'%PDF-1.4') && substr_count($r['body'],'/Subtype /Image')===2 && str_contains($r['headers']['content-disposition']??'','.pdf'),'PDF do relatório inválido.');
     if($ccEscopo) { $r=$http('GET','/relatorio-pdf?cc[]='.$ccEscopo); $txt=''; preg_match_all('/stream\n(.*?)\nendstream/s',$r['body'],$st); foreach($st[1] as $z) $txt.=@gzuncompress($z)?:''; $check(str_contains($txt,'(R$ 9.003,00)'),'Totais ausentes no PDF do relatório.'); }
     $r=$http('POST','/relatorio-gerar',['csrf'=>$csrf,'periodo'=>'ano']); $check($r['status']===303 && str_starts_with($r['headers']['location']??'','/relatorios?periodo=ano'),'Geração do relatório sem sincronizar falhou.');
     $check(str_starts_with($flash('/relatorios'),'success'),'Aviso da geração do relatório ausente.');
@@ -174,7 +174,7 @@ try {
     // 9. Log do servidor sem avisos do PHP.
     usleep(200000); $server_log=(string)@file_get_contents($log);
     $check(!preg_match('/PHP (Warning|Notice|Deprecated|Fatal)/',$server_log),"Avisos do PHP no servidor:\n".implode("\n",array_slice(preg_grep('/PHP (Warning|Notice|Deprecated|Fatal)/',explode("\n",$server_log)),0,5)));
-    echo "OK: ponta a ponta — $ok verificações: migrações, saúde, cabeçalhos, CSRF, login, ".count($paginas)." telas, escopo atual × histórico (ativos, compras, painel, bens sem número), filtro por origem (Compras e Painel), totais de compras com e sem patrimônio, relatórios por CC (tela, período, CSV, PDF com logotipo, geração, permissões), 404, XSS, cadastro+auditoria, projeto, rateio 60% e bloqueio >100%, custo 1800.60, triagem, CSV/BOM/fórmula, Project XML, mapas ($mapas), perfil consulta e log do PHP limpo. Banco temporário descartado.\n";
+    echo "OK: ponta a ponta — $ok verificações: migrações, saúde, cabeçalhos, CSRF, login, ".count($paginas)." telas, escopo atual × histórico (ativos, compras, painel, bens sem número), filtro por origem (Compras e Painel), totais de compras com e sem patrimônio, relatórios por CC (tela, período, CSV, PDF no timbrado oficial, geração, permissões), 404, XSS, cadastro+auditoria, projeto, rateio 60% e bloqueio >100%, custo 1800.60, triagem, CSV/BOM/fórmula, Project XML, mapas ($mapas), perfil consulta e log do PHP limpo. Banco temporário descartado.\n";
 } catch(Throwable $e) {
     $exit=1; fwrite(STDERR,'FALHOU: '.$e->getMessage().PHP_EOL);
 } finally {
