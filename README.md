@@ -64,6 +64,10 @@ Veja [Relatórios](RELATORIOS.md) para gastos por centro de custo e período (se
 
 Veja [Indicadores de TI](INDICADORES-TI.md) para a Visão Executiva de TI (cartões com meta, gráficos, riscos, Modo TV e atualização automática).
 
+Tema claro, automático ou escuro: seletor no topo de todas as telas. Modo TV: botão **Modo TV** no Parque e custos e na Visão Executiva.
+
+Troca da senha do usuário do banco: `C:\xampp\php\php.exe bin\definir-senha-db.php` (detalhes na seção 9 da [documentação completa](DOCUMENTACAO-COMPLETA.md)).
+
 Veja [Centros de custo SGA](CENTROS-CUSTO-SGA.md) para incluir centros de custo do SGA (com ou sem filhos) no escopo da consulta.
 
 Verificação rápida sem dados internos: `php bin/verificar-publicacao.php`, `php bin/verificar-requisitantes.php`, `php bin/verificar-centros-custo.php` e `php bin/verificar-relatorio-pdf.php`. Com o MariaDB da instalação ativo: `php bin/verificar-ponta-a-ponta.php`.

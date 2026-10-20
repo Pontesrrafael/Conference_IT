@@ -1,0 +1,16 @@
+/* Modo TV (telão): sem menu lateral, cabeçalho verde com logotipo, relógio, tema, tela cheia e recarga. */
+
+body.modo-tv{background:var(--bg);margin:0}
+.tv-conteudo{padding:0 22px 22px}
+.tv-topo{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:20px;background:var(--sg-verde);color:#fff;margin:0 -22px 14px;padding:14px 26px;border-bottom:4px solid var(--sg-amarelo)}
+.tv-logo{width:150px;height:auto}.tv-titulo h1{margin:0;font-size:28px;color:#fff}.tv-titulo p{margin:2px 0 0;color:#d3e5da;font-size:14px}
+.tv-relogio{font-size:40px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--sg-amarelo)}
+.tv-acoes .secondary,.tv-acoes .button{padding:8px 12px;font-size:13px}
+.tv-filtros{margin-bottom:10px}.tv-filtros summary{cursor:pointer;color:var(--muted);font-size:13px}
+
+.tv-acoes{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.tv-topo .tema-seletor{background:transparent;border-color:#8eb09e}.tv-topo .tema-seletor a{color:#e0eee7}.tv-topo .tema-seletor a:hover{background:#0b5a44;color:#fff}.tv-topo .tema-seletor a[aria-pressed="true"]{background:var(--sg-amarelo);color:#024B37}
+.modo-tv .kpi-valor{font-size:38px}.modo-tv .ind-kpis-app .kpi-valor{font-size:30px}.modo-tv .kpi-valor-moeda,.modo-tv .kpi-valor-data{font-size:24px}
+.modo-tv .hero h2{font-size:52px}.modo-tv .metrics strong{font-size:40px}.modo-tv .content-tv>.panel,.modo-tv .content-tv>section{margin-bottom:16px}
+@media(max-width:750px){.tv-topo{grid-template-columns:1fr auto}.tv-acoes{grid-column:1/-1}}
+@media print{.tv-acoes,.tv-filtros{display:none}}

@@ -1,14 +1,9 @@
 'use strict';
-// Visão Executiva de TI: atualização automática do miolo (?parcial=1), relógio e tela cheia no Modo TV.
+// Visão Executiva de TI: atualização automática do miolo (?parcial=1). Relógio e tela cheia ficam em tv.js.
 (() => {
   const alvo = document.querySelector('[data-indicadores]');
   const status = document.getElementById('ind-status');
-  const relogio = document.getElementById('tv-relogio');
   const hora = () => new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Cuiaba' });
-  if (relogio) { relogio.textContent = hora(); setInterval(() => { relogio.textContent = hora(); }, 15000); }
-  document.querySelectorAll('[data-tela-cheia]').forEach((b) => b.addEventListener('click', () => {
-    if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.();
-  }));
   if (!alvo) return;
   const segundos = Number(alvo.dataset.atualizar || 0);
   if (!segundos) { if (status) status.textContent = 'Atualização automática desligada.'; return; }

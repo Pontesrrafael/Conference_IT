@@ -26,6 +26,13 @@ final class Web {
         if(isset($_SESSION['last']) && time()-$_SESSION['last']>3600) { $_SESSION=[]; session_regenerate_id(true); }
         $_SESSION['last']=time(); $_SESSION['csrf']??=bin2hex(random_bytes(24));
         $path=parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH)?:'/';
+        if($path==='/tema') {
+            // Preferência de tema por navegador; o retorno aceita só caminhos locais (sem redirecionamento aberto).
+            $v=(string)($_GET['valor']??''); if(!in_array($v,['claro','escuro','auto'],true)) $v='auto';
+            setcookie('tema',$v==='auto'?'':$v,['expires'=>$v==='auto'?time()-3600:time()+31536000,'path'=>'/','samesite'=>'Lax','secure'=>!empty($_SERVER['HTTPS'])&&$_SERVER['HTTPS']!=='off']);
+            $voltar=(string)($_GET['voltar']??'/'); if(!preg_match('~^/(?![/\\\\])[^\\s\\\\]*$~',$voltar)) $voltar='/';
+            header('Location: '.$voltar,true,303); return;
+        }
         if($path==='/saude') { header('Content-Type: application/json'); try { DB::one('SELECT 1'); echo '{"status":"ok"}'; } catch(\Throwable) { http_response_code(503); echo '{"status":"indisponivel"}'; } return; }
         try {
             if($_SERVER['REQUEST_METHOD']==='POST') {
@@ -69,7 +76,8 @@ final class Web {
                 $atualizar=(int)($_GET['atualizar']??IndicadoresTi::ATUALIZACAO_PADRAO); if(!isset(IndicadoresTi::ATUALIZACOES[$atualizar])) $atualizar=IndicadoresTi::ATUALIZACAO_PADRAO;
                 $params+=['ind'=>IndicadoresTi::painel($periodo),'atualizar'=>$atualizar,'modoTv'=>($_GET['tv']??'')==='1'];
                 if(($_GET['parcial']??'')==='1') { header('Cache-Control: no-store'); self::view('indicadores-conteudo',$params); return; }
-                self::view($params['modoTv']?'indicadores-tv':'app',$params); return;
+                if($params['modoTv']) { self::view('tv',$params+['tvView'=>'indicadores','tvTitulo'=>'Visão Executiva de TI','tvSubtitulo'=>'Disponibilidade, segurança, conformidade e ativos — Salinas Gold Mineração','tvSair'=>'/indicadores?'.http_build_query(array_diff_key($_GET,['tv'=>1,'parcial'=>1])),'recarregar'=>0]); return; }
+                self::view('app',$params); return;
             }
             if($path==='/indicadores-dados') {
                 if(!$can) throw new RuntimeException('Seu perfil permite apenas consulta.');
@@ -158,7 +166,13 @@ final class Web {
                     $params['origensPainel']=CentrosCusto::origens(); $params['origemPainel']=(string)($_GET['origem']??'');
                     if(!CentrosCusto::origem($params['origemPainel'])) $params['origemPainel']='';
                     $params+=Parque::painel($periodo,!$escopoTodos,$params['origemPainel']);
-                    $params['last']=DB::one('SELECT * FROM sincronizacoes ORDER BY id DESC LIMIT 1'); break;
+                    $params['last']=DB::one('SELECT * FROM sincronizacoes ORDER BY id DESC LIMIT 1');
+                    if(($_GET['tv']??'')==='1') {
+                        // Modo TV do painel Parque e custos: recarrega a página inteira no intervalo escolhido.
+                        $atualizar=(int)($_GET['atualizar']??IndicadoresTi::ATUALIZACAO_PADRAO); if(!isset(IndicadoresTi::ATUALIZACOES[$atualizar])) $atualizar=IndicadoresTi::ATUALIZACAO_PADRAO;
+                        self::view('tv',$params+['modoTv'=>true,'atualizar'=>$atualizar,'tvView'=>'parque-tv','tvTitulo'=>'Parque e custos de TI','tvSubtitulo'=>'Custo do parque, compras do escopo SGA e projetos — Salinas Gold Mineração','tvSair'=>'/?'.http_build_query(array_diff_key($_GET,['tv'=>1,'atualizar'=>1])),'recarregar'=>$atualizar]); return;
+                    }
+                    break;
                 default: http_response_code(404); throw new RuntimeException('Página não encontrada.');
             }
             self::view('app',$params);

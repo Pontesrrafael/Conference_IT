@@ -1,6 +1,6 @@
 /* Visão Executiva de TI — cartões com meta, gráficos SVG e Modo TV (padrão dos Indicadores do Salinas Access Gate). */
 :root{--ind-ok:#1f7a3a;--ind-fora:#b3261e;--ind-neutro:#707070;--ind-serie-0:#024B37;--ind-serie-1:#FFCD00;--ind-serie-2:#C6D53E;--ind-grade:#e3e9e5}
-@media(prefers-color-scheme:dark){:root{--ind-ok:#8fd19e;--ind-fora:#ff9a8f;--ind-neutro:#b3c7bb;--ind-serie-0:#C6D53E;--ind-serie-1:#FFCD00;--ind-serie-2:#7fb8a2;--ind-grade:#2c4a3d}}
+@media(prefers-color-scheme:dark){:root:not([data-tema="claro"]){--ind-ok:#8fd19e;--ind-fora:#ff9a8f;--ind-neutro:#b3c7bb;--ind-serie-0:#C6D53E;--ind-serie-1:#FFCD00;--ind-serie-2:#7fb8a2;--ind-grade:#2c4a3d}}:root[data-tema="escuro"]{--ind-ok:#8fd19e;--ind-fora:#ff9a8f;--ind-neutro:#b3c7bb;--ind-serie-0:#C6D53E;--ind-serie-1:#FFCD00;--ind-serie-2:#7fb8a2;--ind-grade:#2c4a3d}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .ind-intro{margin-top:0}.ind-periodo{font-size:13px;color:var(--muted);margin:4px 0 14px}
 .ind-secao{font-size:17px;margin:22px 0 10px}.ind-secao .muted{font-weight:400;font-size:14px}
@@ -42,17 +42,8 @@ a.kpi:hover{text-decoration:none;border-color:var(--sg-verde-claro)}
 .nivel-risco{display:inline-block;min-width:30px;text-align:center;padding:2px 8px;border-radius:12px;background:var(--ind-fora);color:#fff;font-weight:600}
 .meta-form{display:flex;gap:6px;align-items:center}.meta-form select{width:62px}.meta-form input{width:90px}.meta-form button{padding:7px 12px}
 .ind-status{min-height:1em;margin:6px 0 0}
-/* Modo TV: sem menu lateral, para telão. */
-body.modo-tv{background:var(--bg);margin:0}
-.tv-conteudo{padding:0 22px 22px}
-.tv-topo{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:20px;background:var(--sg-verde);color:#fff;margin:0 -22px 14px;padding:14px 26px;border-bottom:4px solid var(--sg-amarelo)}
-.tv-logo{width:150px;height:auto}.tv-titulo h1{margin:0;font-size:28px;color:#fff}.tv-titulo p{margin:2px 0 0;color:#d3e5da;font-size:14px}
-.tv-relogio{font-size:40px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--sg-amarelo)}
-.tv-acoes{display:flex;gap:8px}.tv-acoes .secondary,.tv-acoes .button{padding:8px 12px;font-size:13px}
-.tv-filtros{margin-bottom:10px}.tv-filtros summary{cursor:pointer;color:var(--muted);font-size:13px}
-.modo-tv .kpi-valor{font-size:38px}.modo-tv .ind-kpis-app .kpi-valor{font-size:30px}.modo-tv .kpi-valor-moeda,.modo-tv .kpi-valor-data{font-size:24px}
 @media(max-width:1300px){.ind-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.ind-grade-3{grid-template-columns:1fr 1fr}.ind-grade-3 .ind-largo{grid-column:1/-1}}
-@media(max-width:750px){.ind-kpis,.ind-kpis-app{grid-template-columns:1fr 1fr}.ind-grade-3,.ind-grade-2{grid-template-columns:1fr}.tv-topo{grid-template-columns:1fr auto}.tv-acoes{grid-column:1/-1}.kpi-valor{font-size:26px}}
-@media print{.tv-acoes,.tv-filtros,#form-indicadores{display:none}}
-@media(prefers-color-scheme:dark){.nivel-risco{color:#2a0d0a}}
+@media(max-width:750px){.ind-kpis,.ind-kpis-app{grid-template-columns:1fr 1fr}.ind-grade-3,.ind-grade-2{grid-template-columns:1fr}.kpi-valor{font-size:26px}}
+@media print{#form-indicadores{display:none}}
+@media(prefers-color-scheme:dark){:root:not([data-tema="claro"]) .nivel-risco{color:#2a0d0a}}:root[data-tema="escuro"] .nivel-risco{color:#2a0d0a}
 .ind-cartao.table-panel .vazio{padding:18px 22px}

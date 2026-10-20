@@ -1,6 +1,6 @@
 # Salinas TI — documentação completa e estado atual
 
-**Revisão da documentação:** 20/10/2026, 15:00 (Horário de Mato Grosso – UTC-4), com verificação no navegador da instalação local (seção 11.4). Inclui requisitantes e centros de custo configuráveis, telas filtradas pelo escopo atual (seção 6.5) e a verificação geral (seção 11.3). Histórico na seção 15.
+**Revisão da documentação:** 20/10/2026, 15:45 (Horário de Mato Grosso – UTC-4), com verificação no navegador da instalação local (seção 11.4). Inclui requisitantes e centros de custo configuráveis, telas filtradas pelo escopo atual (seção 6.5) e a verificação geral (seção 11.3). Histórico na seção 15.
 
 **Referência do levantamento:** 19/10/2026, 23:18:58, horário de Cuiabá (UTC−04:00). Os totais operacionais abaixo são uma fotografia dessa consulta e mudam com o uso.
 
@@ -214,6 +214,20 @@ Menu **Indicadores → Visão Executiva de TI** (`/indicadores`), no padrão dos
 
 Nesta etapa, os valores do Zabbix, Microsoft 365, controles, licenças e rádios entram por lançamento manual ou CSV, com conferência de tudo ou nada, em **Dados dos indicadores** (admin e operador_ti). Só o administrador altera metas. Tudo fica na auditoria. Detalhes, códigos e regras em [Indicadores de TI](INDICADORES-TI.md).
 
+### 6.5.3 Tema claro/escuro e Modo TV
+
+- **Tema da interface:** o seletor **☀ Claro · ◐ Automático · ☾ Escuro** aparece no topo de todas as telas, no login, nas mensagens de erro e no Modo TV.
+  - O tema muda na hora, sem recarregar a página (`assets/tema.js`).
+  - A escolha fica guardada **por navegador** no cookie `tema`, por 1 ano. Assim, o telão pode ficar escuro e a estação, clara.
+  - **Automático** segue o sistema operacional.
+  - Sem JavaScript, os links `/tema?valor=…&voltar=…` gravam a escolha e voltam à mesma página. O retorno aceita só caminhos locais, sem redirecionamento aberto.
+  - Como funciona no CSS: cada bloco escuro existe em duas versões, `@media(prefers-color-scheme:dark){:root:not([data-tema="claro"]) …}` para o automático e `:root[data-tema="escuro"] …` para a escolha manual. Regras escuras novas devem seguir esse padrão.
+- **Modo TV** (`?tv=1`), para o telão da sala de TI:
+  - **Parque e custos** (`/?tv=1`) e **Visão Executiva de TI** (`/indicadores?tv=1`).
+  - Layout comum (`Views/tv.php`, `assets/tv.css` e `assets/tv.js`), sem menu lateral: cabeçalho verde com o logotipo, título, relógio no Horário de Mato Grosso – UTC-4, seletor de tema, botão de tela cheia e botão de saída.
+  - Os filtros ficam recolhidos em "Filtros e atualização".
+  - **Atualização:** o Parque recarrega a página a cada 1, 5 (padrão) ou 15 minutos. A Visão Executiva atualiza só os dados, sem recarregar a página. Com a aba em segundo plano, a atualização pausa.
+
 ### 6.6 Projetos e rateio
 
 Cadastro de código, nome, descrição, responsável, CC de referência, situação, orçamento opcional e datas previstas. O código é único. Atualizações usam versão para detectar edição concorrente.
@@ -324,6 +338,20 @@ Requisitos desta versão: Windows, XAMPP em `C:\xampp`, PHP 8.2 com PDO MySQL, B
 O instalador usa a instância MariaDB dedicada que o script prepara; não deve ser apontado inadvertidamente para um banco de terceiros. Não copie o `.env.example` vazio sobre o ambiente instalado: o instalador gera `.env` automaticamente em instalação nova. Em instalação manual, preencha todas as variáveis corretamente, inclusive `APP_KEY` e senha do banco.
 
 O runtime Python da máquina de origem não é portátil nem incluído no Git. Defina `MAP_PYTHON` no novo `.env` antes de usar mapas. Os scripts locais têm caminhos XAMPP e portas definidos no código; adaptar para Linux, serviço Windows, Apache/IIS/Nginx ou outro layout exige homologação específica.
+
+**Senha do usuário do banco.** O `instalar.php` gera uma senha aleatória para `salinas_ti` e grava no `.env`. Para trocar:
+- comando: `C:\xampp\php\php.exe bin\definir-senha-db.php`, que gera uma senha de 64 caracteres;
+- opção `--informar`: você digita a senha (16 a 100 caracteres, com maiúsculas, minúsculas e números);
+- opção `--mostrar`: exibe a nova senha uma vez.
+
+O que o script faz:
+1. confere a senha atual;
+2. faz backup do `.env` em `storage/backups`;
+3. altera a senha no MariaDB e no `.env`;
+4. testa a conexão. Se algo falhar depois da troca, volta para a senha anterior;
+5. registra a troca na auditoria, sem a senha.
+
+Depois, reinicie a aplicação (`parar.ps1` e `iniciar.ps1`). Apague o backup do `.env` quando não precisar mais.
 
 O servidor PHP embutido é para testes. Ele pode ficar ocupado durante uma importação ou conversão; ainda não existe fila/worker para processamento de mapas grandes ou sincronizações.
 
@@ -452,6 +480,11 @@ O Chrome abre o PDF no visualizador interno, que a automação não consegue cap
 
 Ajuste feito nessa verificação: "Patrimônios ambíguos" contava todo o histórico (22). Agora conta só o escopo atual (4), como a sincronização.
 
+**15:45 — Tema e Modo TV.** Sincronização às 14:43: **421 compras**; patrimônios **18 associados, 4 ambíguos, 36 sem número**. Na instalação:
+- `/?tv=1` com o tema escuro: Parque e custos com R$ 48.024,74 e 18 patrimônios não baixados, além do relógio e do seletor de tema no cabeçalho;
+- `/indicadores` com o tema claro: o seletor marcou "Claro";
+- ao final, o tema voltou para **Automático**.
+
 Ajustes feitos depois dessa verificação:
 - O painel **Atualizar compras** dizia só "Consulta os requisitantes configurados: 768", o que dava a impressão de que o CC fora ignorado. Agora mostra também os CCs.
 - A tela **Patrimônios** ganhou a lista **Bens do imobilizado sem número de patrimônio**, filtrada pelo escopo, com descrição, NF, valor, compra e CC do bem.
@@ -477,6 +510,8 @@ Ajustes feitos depois dessa verificação:
 | Sincronização com SSL | Em 20/10 a ponte SQL Server falhou com "cadeia de certificação não confiável" e a conexão foi salva **sem SSL**. Para homologar: reativar SSL e marcar "Confiar no certificado" (teste) ou instalar a CA do servidor SQL (produção). |
 | PDF no timbrado | Validar o layout com a Comunicação/Marketing (A4 paisagem e Helvetica, enquanto o modelo Word é retrato com Author/Poppins). Se o timbrado mudar, atualizar `RelatorioPdf::ENDERECOS`/`CNPJ` e rodar `bin/gerar-logo-pdf.py`. |
 | Indicadores de TI | Rodar o **iniciar.ps1** para aplicar a migração 007. Lançar ou importar os valores atuais do Power BI e o registro de riscos. Próximas etapas: demais páginas (Segurança M365, Disponibilidade & Rede etc.) e coleta direta e agendada por API (Zabbix, UniFi, Microsoft Graph, NinjaOne) em modo leitura. |
+| Mapas e áreas → Prédios | **Próxima etapa, pedida em 20/10:** redesenhar a aba como **Prédios**, sem novos GeoTIFFs. Fica só o apontamento de itens e custos por prédio/área. A georreferência para o Zabbix sai do escopo. |
+| Senha do banco | Rodar `bin/definir-senha-db.php` na instalação, reiniciar a aplicação e guardar a senha no gerenciador de senhas, se usar `--mostrar`. |
 
 Esse estado é uma base funcional para testes, não comprovação de aceite de produção. Funcionalidade implementada e teste sintético aprovado não substituem conferência da rede, dos dados físicos ou das regras da operação.
 
@@ -510,6 +545,7 @@ Guias específicos incluídos: [Relatórios](RELATORIOS.md), [Centros de custo S
 | 20/10/2026 | **Escopo por centro de custo** (união com requisitantes, filhos por `CCSTCOD`, limites 300 CCs / 5.000 linhas, auditoria, tela) | `CentrosCusto.php`, `Web.php`, `app.php`, `Minerion.php`, `PatrimoniosSga.php`, `DocumentosCompra.php`, consultas SQL |
 | 20/10/2026 | Verificação geral: novos testes `verificar-centros-custo` e `verificar-ponta-a-ponta`; correção de `bin/coletar.php` e do caminho fixo do Python | `bin/`, `Mapas.php` |
 | 20/10/2026 09:20 | Verificação no navegador e sincronização do escopo 768: 196 compras, 3 ativos associados, 12 ambíguos, 9 sem número (seção 11.4) | — |
+| 20/10/2026 15:45 | **Tema claro/escuro** em todo o sistema (seletor no topo, cookie por navegador, sem redirecionamento aberto) e **Modo TV** também no **Parque e custos**, com layout comum (`tv.php`, `tv.css`, `tv.js`) e recarga periódica. Script `bin/definir-senha-db.php` para trocar a senha do usuário do banco com backup, reversão e auditoria. Ponta a ponta com 97 verificações | `bootstrap.php`, `Web.php`, `app.php`, `login.php`, `error.php`, `tv.php`, `parque-tv.php`, `periodo.php`, `indicadores.php`, CSS/JS, `definir-senha-db.php`, testes |
 | 20/10/2026 15:00 | **Indicadores de TI · Visão Executiva** (base no Power BI *SGM \| Dashboard de TI* e no padrão do Access Gate): 10 cartões com meta, parque/compras do escopo, gráficos SVG (disponibilidade diária, controles, riscos, parque), riscos altos, Modo TV e atualização automática. Tela **Dados dos indicadores**: lançamento, CSV tudo-ou-nada (medições e riscos), metas (admin), remoção auditada. Migração 007. Testes: `verificar-indicadores` (portátil) e ponta a ponta com 88 verificações | `007_indicadores_ti.sql`, `IndicadoresTi.php`, `GraficoSvg.php`, `Web.php`, `app.php`, `indicadores*.php`, `indicadores.css/js`, `INDICADORES-TI.md`, testes |
 | 20/10/2026 14:00 | **PDF no timbrado oficial** (`MODELO - TIMBRADO.docx`): sai a faixa verde com o logotipo em placa branca; entram o logotipo direto sobre o fundo branco, a faixa amarela lateral com razão social e CNPJ em texto vertical e o rodapé com linha verde, marcadores e endereços (Nossa Senhora do Livramento/MT e Cuiabá/MT) e listras diagonais. Faixa, linha e listras em vetor. `Pdf.php` ganhou polígono preenchido e texto vertical. Testes atualizados; ponta a ponta com 69 verificações | `Pdf.php`, `RelatorioPdf.php`, `Assets/pin-endereco-pdf.png`, `gerar-logo-pdf.py`, `RELATORIOS.md`, testes |
 | 20/10/2026 11:15 | **Relatório em PDF** com o **logotipo oficial** (placa branca na faixa verde, como na interface), A4 paisagem, cartões, tabelas paginadas com cabeçalho repetido e rodapé "Página X de Y". Gerado em PHP puro, sem bibliotecas. Teste portátil `verificar-relatorio-pdf`; ponta a ponta com 69 a 72 verificações | `Pdf.php`, `RelatorioPdf.php`, `Assets/`, `gerar-logo-pdf.py`, `Web.php`, `relatorios.php`, testes |

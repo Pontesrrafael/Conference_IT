@@ -18,3 +18,16 @@ function options(array $rows, mixed $selected = null): string {
     foreach ($rows as $r) $html .= '<option value="' . e($r['id']) . '"' . ((string)$selected === (string)$r['id'] ? ' selected' : '') . '>' . e($r['nome']) . '</option>';
     return $html;
 }
+/** Tema da interface por navegador (cookie "tema"): claro, escuro ou automático (segue o sistema operacional). */
+function tema(): string { $t = $_COOKIE['tema'] ?? ''; return in_array($t, ['claro', 'escuro'], true) ? $t : 'auto'; }
+function attr_tema(): string { return tema() === 'auto' ? '' : ' data-tema="' . tema() . '"'; }
+/** Seletor Claro · Automático · Escuro. Funciona sem JavaScript (/tema) e, com ele, troca na hora (assets/tema.js). */
+function seletor_tema(string $classe = ''): string {
+    $voltar = (string)($_SERVER['REQUEST_URI'] ?? '/');
+    if (!str_starts_with($voltar, '/') || str_starts_with($voltar, '//')) $voltar = '/';
+    $h = '<nav class="tema-seletor ' . e($classe) . '" aria-label="Tema da interface">';
+    foreach (['claro' => ['☀', 'Claro'], 'auto' => ['◐', 'Automático'], 'escuro' => ['☾', 'Escuro']] as $v => [$icone, $rotulo]) {
+        $h .= '<a href="/tema?' . e(http_build_query(['valor' => $v, 'voltar' => $voltar])) . '" data-tema-valor="' . $v . '" aria-pressed="' . (tema() === $v ? 'true' : 'false') . '" title="Tema ' . e(mb_strtolower($rotulo)) . '"><span aria-hidden="true">' . $icone . '</span> ' . e($rotulo) . '</a>';
+    }
+    return $h . '</nav>';
+}

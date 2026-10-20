@@ -147,6 +147,16 @@ try {
     $r=$http('GET','/indicadores-modelo?tipo=riscos'); $check(str_starts_with($r['body'],"\xEF\xBB\xBFcodigo;risco;nivel") && str_contains($r['headers']['content-type']??'','text/csv'),'Modelo CSV inválido.');
     $med=(int)DB::one("SELECT m.id FROM indicadores_ti_medicoes m JOIN indicadores_ti i ON i.id=m.indicador_id WHERE i.codigo='problemas_criticos'")['id'];
     $http('POST','/indicador-medicao-remover',['csrf'=>$csrf,'id'=>(string)$med]); $check(!DB::one('SELECT id FROM indicadores_ti_medicoes WHERE id=?',[$med]) && DB::one("SELECT id FROM auditoria WHERE entidade='indicadores_ti_medicoes' AND acao='remover'"),'Remoção de medição sem auditoria.');
+    // 5c. Tema claro/escuro (cookie por navegador, sem redirecionamento aberto) e Modo TV do painel Parque e custos.
+    $r=$http('GET','/'); $check(str_contains($r['body'],'class="tema-seletor') && str_contains($r['body'],'data-tema-valor="escuro"') && !str_contains($r['body'],'<html lang="pt-BR" data-tema'),'Seletor de tema ausente ou tema forçado sem escolha.');
+    $r=$http('GET','/tema?valor=escuro&voltar='.rawurlencode('/indicadores?tv=1')); $check($r['status']===303 && ($r['headers']['location']??'')==='/indicadores?tv=1','Troca de tema não voltou à página.');
+    foreach(['//evil.example','/\\evil','https://evil.example'] as $mal) { $r=$http('GET','/tema?valor=claro&voltar='.rawurlencode($mal)); $check(($r['headers']['location']??'')==='/','Redirecionamento aberto em /tema: '.$mal); }
+    $cookieOriginal=$cookie; $cookie.='; tema=escuro';
+    $r=$http('GET','/'); $check(str_contains($r['body'],'<html lang="pt-BR" data-tema="escuro">') && str_contains($r['body'],'aria-pressed="true" title="Tema escuro"'),'Tema escuro não aplicado pelo cookie.');
+    $r=$http('GET','/?tv=1&atualizar=60'); $check($r['status']===200 && $noErrors($r['body']) && str_contains($r['body'],'data-recarregar="60"') && str_contains($r['body'],'tv-relogio') && !str_contains($r['body'],'class="sidebar"') && str_contains($r['body'],'data-tema="escuro"') && str_contains($r['body'],'name="tv" value="1"'),'Modo TV do Parque e custos inválido.');
+    $r=$http('GET','/indicadores?tv=1'); $check(str_contains($r['body'],'data-recarregar="0"') && str_contains($r['body'],'/assets/indicadores.js') && str_contains($r['body'],'Sair do Modo TV'),'Modo TV da Visão Executiva inválido.');
+    $cookie=$cookieOriginal.'; tema=invalido'; $r=$http('GET','/'); $check(!str_contains($r['body'],'data-tema="invalido"'),'Valor de tema inválido refletido no HTML.');
+    $cookie=$cookieOriginal;
     $r=$http('GET','/rota-inexistente'); $check($r['status']===404,'Rota inexistente não retornou 404.');
 
     // 6. Ações com CSRF: cadastro, projeto, rateio com limite de 100%, triagem.
@@ -209,7 +219,7 @@ try {
     // 9. Log do servidor sem avisos do PHP.
     usleep(200000); $server_log=(string)@file_get_contents($log);
     $check(!preg_match('/PHP (Warning|Notice|Deprecated|Fatal)/',$server_log),"Avisos do PHP no servidor:\n".implode("\n",array_slice(preg_grep('/PHP (Warning|Notice|Deprecated|Fatal)/',explode("\n",$server_log)),0,5)));
-    echo "OK: ponta a ponta — $ok verificações: migrações, saúde, cabeçalhos, CSRF, login, ".count($paginas)." telas, escopo atual × histórico (ativos, compras, painel, bens sem número), filtro por origem (Compras e Painel), totais de compras com e sem patrimônio, relatórios por CC (tela, período, CSV, PDF no timbrado oficial, geração, permissões), Visão Executiva de TI (painel, Modo TV, miolo parcial, lançamento, CSV tudo-ou-nada, riscos, metas, remoção auditada, permissões), 404, XSS, cadastro+auditoria, projeto, rateio 60% e bloqueio >100%, custo 1800.60, triagem, CSV/BOM/fórmula, Project XML, mapas ($mapas), perfil consulta e log do PHP limpo. Banco temporário descartado.\n";
+    echo "OK: ponta a ponta — $ok verificações: migrações, saúde, cabeçalhos, CSRF, login, ".count($paginas)." telas, escopo atual × histórico (ativos, compras, painel, bens sem número), filtro por origem (Compras e Painel), totais de compras com e sem patrimônio, relatórios por CC (tela, período, CSV, PDF no timbrado oficial, geração, permissões), Visão Executiva de TI e Parque e custos no Modo TV, tema claro/escuro (cookie, sem redirecionamento aberto), Visão Executiva (painel, miolo parcial, lançamento, CSV tudo-ou-nada, riscos, metas, remoção auditada, permissões), 404, XSS, cadastro+auditoria, projeto, rateio 60% e bloqueio >100%, custo 1800.60, triagem, CSV/BOM/fórmula, Project XML, mapas ($mapas), perfil consulta e log do PHP limpo. Banco temporário descartado.\n";
 } catch(Throwable $e) {
     $exit=1; fwrite(STDERR,'FALHOU: '.$e->getMessage().PHP_EOL);
 } finally {
