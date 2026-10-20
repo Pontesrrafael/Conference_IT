@@ -373,6 +373,8 @@ Os 12 casos ambíguos do 768 aparecem em **Pendências de associação** e preci
 
 **09:38 — escopo 768 + CC 1290 (com filhos).** A sincronização funcionou nas duas execuções (09:36 e 09:39): **217 compras** (196 do 768 + 21 do CC 1290), 71 com NF; patrimônios **3 associados, 12 ambíguos, 16 sem número**. Em Patrimônios continuam 3 ativos porque **os 7 bens do imobilizado ligados ao CC 1290 estão sem número de patrimônio no SGA** (rack 19", cabos ópticos AS120 24FO, DIO 24FO, cordão óptico, cruzeta e fita de aço). Conferido no SGA: `IBAINUMPAT=0` e `IBAINUMPATST` vazio. Por regra, a aplicação não cria ativo sem número.
 
+**09:55 — escopo só CC 1290 (768 removido pela tela, agora permitido).** Sincronização: **21 compras; patrimônios 0 associados, 0 ambíguos, 7 sem número**. Compras SGA mostra 21 linhas, cada uma com "No escopo por: centro de custo 1290". Patrimônios mostra 0 ativos no escopo e os 7 bens sem número listados.
+
 Ajustes feitos depois dessa verificação:
 - O painel **Atualizar compras** dizia só "Consulta os requisitantes configurados: 768", o que dava a impressão de que o CC fora ignorado. Agora mostra também os CCs.
 - A tela **Patrimônios** ganhou a lista **Bens do imobilizado sem número de patrimônio**, filtrada pelo escopo, com descrição, NF, valor, compra e CC do bem.
