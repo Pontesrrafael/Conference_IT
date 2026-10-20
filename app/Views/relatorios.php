@@ -19,7 +19,7 @@ $qs=http_build_query(['periodo'=>$periodo->opcao,'data_inicio'=>$periodo->opcao=
 <?php endif; ?>
 <div class="date-fields"><label>Período<select name="periodo"><?php foreach(['todos'=>'Todo o histórico','hoje'=>'Hoje','7dias'=>'Últimos 7 dias','30dias'=>'Últimos 30 dias','mes'=>'Mês atual','ano'=>'Ano atual','personalizado'=>'Personalizado'] as $v=>$label): ?><option value="<?=$v?>" <?=$periodo->opcao===$v?'selected':''?>><?=$label?></option><?php endforeach; ?></select></label><label>De<input type="date" name="data_inicio" value="<?=e($periodo->opcao==='personalizado'?$periodo->inicio:'')?>"></label><label>Até<input type="date" name="data_fim" value="<?=e($periodo->opcao==='personalizado'?$periodo->fim:'')?>"></label></div>
 <p class="small muted">Para digitar datas, selecione Personalizado. Usa a data do processo de compra no SGA; o dia final é incluído por inteiro (Horário de Mato Grosso – UTC-4).</p>
-<div><button><?=$admin?'Gerar relatório':'Atualizar relatório'?></button> <a class="button secondary" href="/relatorio-exportar?<?=e($qs)?>">Exportar CSV</a></div>
+<div><button><?=$admin?'Gerar relatório':'Atualizar relatório'?></button> <a class="button secondary" href="/relatorio-exportar?<?=e($qs)?>">Exportar CSV</a> <a class="button secondary" href="/relatorio-pdf?<?=e($qs)?>">Exportar PDF</a></div>
 </form></section>
 <?php if(!$r['origens']): ?><section class="panel empty"><h2>Sem dados</h2><p class="muted">Selecione ou informe pelo menos um centro de custo.</p></section><?php else: ?>
 <p class="period-note"><strong><?=e($periodo->rotulo())?></strong> · <?=count($r['origens'])?> centro(s) de custo</p>

@@ -64,4 +64,4 @@ Veja [Relatórios](RELATORIOS.md) para gastos por centro de custo e período (se
 
 Veja [Centros de custo SGA](CENTROS-CUSTO-SGA.md) para incluir centros de custo do SGA (com ou sem filhos) no escopo da consulta.
 
-Verificação rápida sem dados internos: `php bin/verificar-publicacao.php`, `php bin/verificar-requisitantes.php` e `php bin/verificar-centros-custo.php`. Com o MariaDB da instalação ativo: `php bin/verificar-ponta-a-ponta.php`.
+Verificação rápida sem dados internos: `php bin/verificar-publicacao.php`, `php bin/verificar-requisitantes.php`, `php bin/verificar-centros-custo.php` e `php bin/verificar-relatorio-pdf.php`. Com o MariaDB da instalação ativo: `php bin/verificar-ponta-a-ponta.php`.

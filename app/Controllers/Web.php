@@ -6,6 +6,7 @@ use App\Services\Integracao;
 use App\Services\Requisitantes;
 use App\Services\CentrosCusto;
 use App\Services\Relatorios;
+use App\Services\RelatorioPdf;
 use App\Services\Inventario;
 use App\Services\Projetos;
 use App\Services\ProjectXml;
@@ -41,7 +42,7 @@ final class Web {
                 if(!$can) throw new RuntimeException('Seu perfil permite apenas consulta.');
                 self::action($path,$u); return;
             }
-            $periodo=Periodo::ler(in_array($path,['/','/projetos','/projeto','/projeto-exportar','/relatorios','/relatorio-exportar'],true)?$_GET:[]);
+            $periodo=Periodo::ler(in_array($path,['/','/projetos','/projeto','/projeto-exportar','/relatorios','/relatorio-exportar','/relatorio-pdf'],true)?$_GET:[]);
             $escopoTodos=($_GET['escopo']??'')==='todos'; // padrão: somente o escopo atual (requisitantes/CC configurados)
             $params=['escopoTodos'=>$escopoTodos,'periodo'=>$periodo,'u'=>$u,'can'=>$can,'path'=>$path,'title'=>match($path){'/'=>'Parque e custos','/mapas'=>'Mapas e áreas','/mapa'=>'Mapa e apontamentos','/projetos'=>'Projetos e custos','/projeto'=>'Painel do projeto','/compras'=>'Compras do Minerion','/ativos'=>'Patrimônios','/estoque'=>'Estoque de materiais','/cadastros'=>'Cadastros','/integracao'=>'Integração SGA','/historico'=>'Movimentações e auditoria','/conta'=>'Minha conta','/relatorios'=>'Relatórios de gastos',default=>'Visão geral'}];
             if($path==='/mapa-imagem') Mapas::arquivo((int)($_GET['id']??0));
@@ -51,6 +52,12 @@ final class Web {
             if($path==='/projeto-project'){ $file=ProjectXml::gerar((int)($_GET['id']??0)); header('Content-Type: application/xml; charset=UTF-8');header('Content-Disposition: attachment; filename="'.$file['nome'].'"');echo $file['xml'];return; }
             if($path==='/projeto-exportar') { self::exportProjeto((int)($_GET['id']??0)); return; }
             if($path==='/relatorio-exportar') { self::exportRelatorio($periodo); return; }
+            if($path==='/relatorio-pdf') {
+                $sel=$_GET['cc']??[]; $sel=is_array($sel)?array_map('intval',array_filter($sel,'is_string')):[];
+                $pdf=RelatorioPdf::gerar(Relatorios::gerar(Relatorios::selecionar($sel),$periodo,RelatorioPdf::LIMITE_LINHAS),$periodo,(string)$u['nome']);
+                header('Content-Type: application/pdf'); header('Content-Disposition: attachment; filename="relatorio-gastos-cc-'.date('Ymd-Hi').'.pdf"'); header('Content-Length: '.strlen($pdf));
+                echo $pdf; return;
+            }
             if($path==='/integracao' && $u['perfil']!=='admin') throw new RuntimeException('Somente administradores podem configurar a integração.');
             $params['locais']=DB::all('SELECT id,nome FROM locais WHERE ativo=1 ORDER BY nome');
             $params['ccs']=DB::all("SELECT id,CONCAT(COALESCE(sga_codigo,'Local'),' · ',nome) nome FROM centros_custo WHERE ativo=1 ORDER BY nome");
