@@ -413,6 +413,13 @@ Os 18 ativos associados vêm do CC 802.
 
 **10:55 — Relatórios.** **Gerar relatório** com sincronização (SGA: 421 compras no escopo). O relatório do CC 1290 em todo o histórico deu **R$ 115.085,10** no pedido e **R$ 114.845,10** com NF, **iguais ao SGA**. Seleção múltipla 1290 + 802 no **ano atual**: **R$ 158.930,37** em 86 linhas, sendo 1290 = R$ 87.305,10 (13 linhas) e 802 = R$ 71.625,27 (73 linhas; patrimônios R$ 21.111,09 em 9 bens). A soma por CC fecha com o total geral, porque não há sobreposição entre os dois.
 
+**11:20 — PDF.** Escopo: CCs 1290 (com filhos), 802, 1337 e 9. Sincronização: **2.665 compras**; patrimônios **37 associados, 18 ambíguos, 94 sem número**. PDF do CC 1290 gerado pela instalação local:
+- `application/pdf`, 145 KB, 2 páginas, arquivo íntegro e logotipo incorporado uma vez;
+- valores R$ 115.085,10 (pedido) e R$ 114.845,10 (com NF), iguais ao SGA;
+- rodapé "Página 1 de 2" e "Página 2 de 2".
+
+Na transferência para o computador, o PNG do logotipo recebeu um bloco extra de metadados de procedência (`caBX`). Os dados da imagem são idênticos (IDAT conferido) e o gerador ignora esse bloco.
+
 Ajustes feitos depois dessa verificação:
 - O painel **Atualizar compras** dizia só "Consulta os requisitantes configurados: 768", o que dava a impressão de que o CC fora ignorado. Agora mostra também os CCs.
 - A tela **Patrimônios** ganhou a lista **Bens do imobilizado sem número de patrimônio**, filtrada pelo escopo, com descrição, NF, valor, compra e CC do bem.
