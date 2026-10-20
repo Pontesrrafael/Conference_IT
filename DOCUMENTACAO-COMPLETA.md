@@ -1,0 +1,355 @@
+# Salinas TI — documentação completa e estado atual
+
+**Referência do levantamento:** 19/10/2026, 23:18:58, horário de Cuiabá (UTC−04:00). Os totais operacionais abaixo são uma fotografia dessa consulta e mudam com o uso.
+
+## 1. Objetivo e escopo
+
+Organizar o parque de TI da Salinas Gold, saber quanto custa o parque cadastrado, identificar itens fora de uso e acompanhar o custo das iniciativas e projetos. Os dados de compras são lidos do Minerion SGA; o inventário físico, os rateios e os apontamentos geográficos são mantidos em banco próprio.
+
+Fora de uso significa **estoque, manutenção ou baixados**. A aplicação não faz descoberta de rede nem monitoramento de comunicação dos equipamentos. Situação aguardando conferência é desconhecida e não é classificada como fora de uso.
+
+A referência de estrutura é o [Salinas Access Gate](https://github.com/Pontesrrafael/salinas-access-gate): PHP renderizado no servidor, MVC próprio, PDO, sessões, controles de acesso e pasta pública separada. O banco de inventário é independente do banco de portaria.
+
+## 2. Onde o projeto está
+
+| Elemento | Localização / referência |
+|---|---|
+| Instalação operacional local | `D:\Apps_SG\Est_Sg` |
+| Endereço | http://localhost:2288 |
+| Porta web | `2288`, escutando em `127.0.0.1` |
+| DocumentRoot | `D:\Apps_SG\Est_Sg\public` |
+| Banco da aplicação | MariaDB `salinas_ti`, em `127.0.0.1:3308` |
+| Arquivos físicos do MariaDB | `D:\Apps_SG\Est_Sg\storage\mariadb` |
+| Configuração privada | `.env` e `storage/sga.json` |
+| Acesso inicial gerado | `ACESSO-LOCAL.txt` — privado e fora do Git |
+| Mapas originais e prévias | `storage/mapas` — privado e fora do Git |
+| Backups e logs | `storage/backups` e `storage/logs` |
+| Código publicado | `https://github.com/Pontesrrafael/salinas-ti` |
+| Cópia preparada para Git | Pasta `outputs/salinas-ti-github` do workspace desta entrega |
+| Documentação consolidada local | `D:\Apps_SG\Est_Sg\DOCUMENTACAO-COMPLETA.md` |
+
+O SQL Server do SGA é uma conexão externa, acessível pela rede/VPN. Endereço interno, usuário e senha não são publicados. O Metabase serviu para descobrir e verificar o esquema; a aplicação usa conexão direta e não depende operacionalmente do Metabase.
+
+## 3. Estado atual verificado
+
+### 3.1 Software e instalação
+
+| Componente | Verificado nesta máquina |
+|---|---|
+| PHP | 8.2.12, XAMPP |
+| MariaDB | 10.4.32 |
+| Python geográfico | 3.12, com Rasterio 1.4.4 e Pillow 11.3.0 |
+| Migrações aplicadas | 001 a 006 |
+| Saúde web | Rota `/saude` respondeu `status: ok` ao final das verificações anteriores |
+| Servidor | Servidor PHP local; não é serviço de produção |
+
+### 3.2 Fotografia do banco operacional
+
+| Indicador | Quantidade |
+|---|---:|
+| Linhas de compras importadas | 1.441 |
+| Patrimônios cadastrados | 67 |
+| Patrimônios aguardando conferência | 67 |
+| Projetos cadastrados | 1 |
+| Compras rateadas em projetos | 0 |
+| Mapas enviados pelo usuário | 0 |
+| Áreas desenhadas | 0 |
+| Movimentações físicas registradas | 0 |
+
+Esses números indicam que os módulos estão implementados, mas a conferência física e os apontamentos operacionais ainda precisam ser preenchidos. O projeto já cadastrado foi informado pelo usuário; nenhum projeto de teste foi deixado no banco real pelas rotinas de verificação.
+
+No levantamento patrimonial anterior foram encontrados 67 vínculos únicos, quatro associações ambíguas e 139 registros sem número de patrimônio. O custo identificado então para os 67 bens foi R$ 154.689,10. Esse valor é histórico de aquisição dos bens associados, não valor de mercado, valor depreciado nem custo de todo o parque da empresa. Os dados detalhados dessa coleta ficam somente no ambiente privado.
+
+## 4. Arquitetura e fluxo de dados
+
+```text
+Navegador
+   └─ PHP / sessão / autorização / CSRF
+       ├─ MariaDB próprio: inventário, projetos, mapas e auditoria
+       ├─ SQL Server SGA: consultas de leitura pela rede/VPN
+       └─ Python/Rasterio: GeoTIFF privado → prévia PNG WGS84
+
+SGA → compras importadas → triagem → conferência física → patrimônio/estoque
+                       └─ rateio até 100% → custos do projeto → CSV / Project XML
+Patrimônios, compras e projetos → áreas desenhadas sobre o GeoTIFF
+```
+
+Não são executados comandos de escrita no SGA pelo código da integração. Isso não comprova que a conta provisória da origem tenha permissões somente de leitura; ainda é recomendada uma conta própria de leitura restrita.
+
+## 5. Organização do código
+
+```text
+app/
+  bootstrap.php                  ambiente, autoload, horário e escape
+  Core/Database.php              PDO, transações e auditoria
+  Controllers/Web.php            rotas, sessão, autorização e exportações
+  Services/
+    Integracao.php               configuração cifrada e importação de compras
+    Minerion.php                 adaptador e validação do escopo
+    Inventario.php               triagem, incorporação e movimentações
+    PatrimoniosSga.php           conciliação do imobilizado com patrimônios
+    Projetos.php                cadastro, rateios, orçamento e custos
+    DocumentosCompra.php        busca por RC / ordem e apontamento em lote
+    Periodo.php                 filtros de datas
+    Parque.php                  custos e situação do parque
+    Mapas.php                   uploads, áreas, vínculos e GeoJSON
+    ProjectXml.php              exportação Microsoft Project MSPDI
+  Views/                        telas PHP
+database/
+  001_estrutura.sql ... 006_mapas.sql
+  queries/                      SELECTs da origem SQL Server
+bin/                            instalação, operação, conversão e verificações
+public/
+  index.php, router.php, .htaccess
+  assets/                       CSS, JS, logos e fontes
+storage/                        estado privado, fora da web e do Git
+evidencias/                     amostras e provas locais, fora do Git
+```
+
+O diretório publicado inclui os testes, mas não as coletas privadas exigidas por parte deles. Os pacotes Python e o banco também não acompanham o Git.
+
+## 6. Funcionalidades implementadas
+
+### 6.1 Acesso e perfis
+
+- Login, saída, troca da própria senha, expiração de sessão por inatividade e bloqueio temporário de tentativas de login.
+- Perfis `admin` e `operador_ti` podem realizar as operações de edição previstas.
+- Perfis `gestor` e `consulta` têm consulta global, sem edição. **Não existe isolamento de registros por centro de custo implementado nesta versão.**
+- Somente administrador configura e executa a sincronização pela interface.
+- Senhas de usuários têm hash bcrypt. A senha do SGA é cifrada com a chave da instalação, que precisa ser preservada para restauração.
+
+Não há cadastro completo de usuários pela interface nem SSO/Active Directory. A auditoria registra as ações previstas nos serviços, não deve ser confundida com um registro de todas as leituras.
+
+### 6.2 Integração e compras SGA
+
+O escopo padrão usa os requisitantes **756, 772, 316 e 1318**. O código 772 foi confirmado para Fernando Silva; 722 está excluído. Coletas pontuais por documento podem trazer todos os itens do documento solicitado, inclusive de outros requisitantes, e não são invalidadas apenas por estarem fora dos quatro códigos na sincronização geral.
+
+Relações principais verificadas na origem:
+
+| Informação | Origem |
+|---|---|
+| Compra / linha | `ITEMPROCESSOCOMPRA.IPCOCOD` |
+| Processo | `ITEMPROCESSOCOMPRA.IPCOPCO` → `PROCESSOCOMPRA.PCOCOD` |
+| Requisitante | `IPCOFUNREQ` → `FUNCIONARIO.FUNCOD` |
+| Produto | `IPCOITEM` → `ESTOQUE.ESTQCOD` |
+| CC da compra | `IPCOCC` → `CENTROCUSTO.CCCOD` |
+| NF vinculada | `FATITEMPROCESSOCOMPRA` → item de NF → NF de entrada |
+| Requisição | `PENDENCIACOMPRA` e `ITEMPENDENCIACOMPRA` |
+| RC → processo | `IPCOIPCOM` e/ou ponte `PCOMITEMPROCESSOCOMPRA` |
+
+A conexão usa PDO SQL Server quando disponível; nesta máquina existe também uma ponte PowerShell/.NET SqlClient. Os segredos são enviados à ponte por entrada padrão, não por argumentos da linha de comando. A importação local é idempotente pela chave da linha SGA, com trava de sincronização e preservação de estado físico/classificações existentes.
+
+NF positiva significa vínculo com quantidade positiva e a situação usada na consulta (`NFESIT=1`). O significado funcional completo dessa situação e as devoluções fiscais ainda precisam de homologação. Campos de quantidade da origem não comprovam entrega ou localização atual.
+
+### 6.3 Triagem, inventário e estoque
+
+Produtos podem ser serializados, controlados por quantidade, serviços ou não classificados. A compra é inicialmente uma origem para triagem. Serviços não geram saldo físico.
+
+Patrimônio exige identificação e conferência antes de movimentação física. Materiais têm lote, quantidade, local e CC; quantidades fracionárias são suportadas. Incorporação, alocação, transferência, devolução, manutenção, consumo e baixa aplicam as validações próprias de cada operação. Nem todo tipo existente no enum do banco possui uma tela genérica para lançamento.
+
+Movimentos e estado/saldo são atualizados em transação. A aplicação bloqueia saldo negativo e recebimento acima da quantidade permitida. Chaves de operação evitam repetir uma incorporação no reenvio do formulário. Histórico físico e auditoria têm proteção de imutabilidade no banco.
+
+O centro de custo original da compra é preservado. O CC atual decorre do inventário e dos movimentos, não é inferido automaticamente da requisição.
+
+### 6.4 Patrimônios identificados no SGA
+
+Registros de imobilizado são conciliados com as compras e com a empresa do patrimônio. Vínculo único pode cadastrar o bem em `aguardando_conferencia`, sem criar movimento ou saldo fictício. Casos ambíguos e conflitos exigem escolha/conferência. A chave de patrimônio é composta por empresa e número.
+
+Uma nova coleta preserva as decisões e situações físicas locais. O custo do bem prioriza o valor de aquisição do imobilizado; quando não existe, usa estimativa unitária pelo pedido/quantidade, identificada na tela. Ausência de custo não é silenciosamente tratada como um custo conhecido igual a zero.
+
+### 6.5 Parque e custos
+
+O painel separa alocados em uso, estoque/manutenção/baixados, baixados fora do total principal e aguardando conferência. O total principal do parque exclui baixados e inclui os bens conhecidos aguardando conferência, com essa cobertura explícita.
+
+O filtro de datas não altera indevidamente o total global cadastrado do parque. Ele filtra a seção de compras/equipamentos do período e os custos dos projetos pela data do processo SGA. A situação mostrada é a atual; não é uma reconstrução histórica da posição do bem naquela data.
+
+**Custos de parque e custos de projetos podem representar as mesmas aquisições. Não devem ser somados.** Materiais de estoque controlados por quantidade também não são automaticamente somados como equipamentos do parque.
+
+### 6.6 Projetos e rateio
+
+Cadastro de código, nome, descrição, responsável, CC de referência, situação, orçamento opcional e datas previstas. O código é único. Atualizações usam versão para detectar edição concorrente.
+
+Uma compra pode atender vários projetos, mas a soma de percentuais não pode exceder 100%. O vínculo entre compra e projeto é único e pode ser ajustado ou retirado com justificativa. Os bloqueios são feitos no servidor, em transações com locks.
+
+```text
+base do pedido = total do pedido SGA, se disponível;
+                 caso contrário, quantidade solicitada × valor unitário
+custo atribuído = TRUNCATE(base do pedido × percentual / 100, 2)
+custo do projeto = soma dos valores atribuídos às compras vinculadas
+```
+
+O orçamento é referência gerencial e não é lançado como uma segunda despesa. O saldo do orçamento considera todo o histórico do projeto mesmo quando o custo visível está filtrado por datas. Divergências e cancelamentos de origem permanecem sinalizados para revisão, em vez de apagar silenciosamente um custo já vinculado.
+
+Os valores representam compras gerenciais, não pagamentos, fluxo de caixa ou comprovação fiscal de despesas.
+
+### 6.7 Coleta por RC ou ordem/processo
+
+O usuário informa tipo, número e, opcionalmente, empresa. A busca consulta os itens diretamente no SGA e apresenta a prévia. Em caso de número de processo ambíguo, é preciso restringir a busca ou usar o código interno.
+
+Depois da conferência, o usuário seleciona linhas e percentual para atribuir ao projeto. A prévia fica na sessão por 15 minutos e a confirmação exige token e CSRF. Os itens recebidos na confirmação são validados contra a prévia do servidor.
+
+Consultar RC e ordem da mesma aquisição reutiliza as mesmas linhas de compra, evitando duplicação de custo. Um lote de rateios é revertido integralmente se uma linha falhar. A importação dos dados da origem é uma etapa anterior separada e pode permanecer registrada mesmo que nenhum rateio seja aplicado.
+
+Uma RC sem pedido pode ser associada como documento, mantendo os valores estimados separados. O valor estimado da RC é exibido como registrado no SGA, sem presumir se é unitário ou total. Não é somado automaticamente ao custo dos pedidos. Linhas de um processo podem atender várias RCs; o percentual precisa ser conferido.
+
+### 6.8 Datas
+
+Opções: todo histórico, hoje, últimos 7 ou 30 dias, mês, ano e intervalo personalizado. Horário de referência: Cuiabá. O dia final é incluído por inteiro por meio de um limite exclusivo no dia seguinte. Datas inválidas e intervalos invertidos são rejeitados.
+
+CSV de projeto respeita o período escolhido. A coleta de documento é uma consulta explícita independente desse filtro. A exportação Microsoft Project é sempre integral.
+
+### 6.9 Mapas GeoTIFF e áreas
+
+Upload de `.tif`/`.tiff` até **256 MiB**, com projeção e transformação geográfica embutidas. O original fica privado. Rasterio gera uma prévia PNG de até 2.400 pixels, reprojetada para WGS84, com as coordenadas do contorno preservadas.
+
+O mapa permite zoom, navegação, desenho por mouse/toque ou teclado e áreas com 3 a 100 vértices. Polígonos fora da imagem, degenerados, com vértices repetidos ou bordas cruzadas são rejeitados. Nome, descrição e contorno podem ser editados. Áreas são exportáveis em GeoJSON WGS84.
+
+Uma área pode conter patrimônios individuais, compras e projetos inteiros. O patrimônio tem um único apontamento geográfico atual; apontá-lo em outra área substitui o anterior. Projetos e compras podem estar em várias áreas. Os itens de um projeto no mapa acompanham dinamicamente os rateios atuais.
+
+O apontamento cartográfico não executa transferência física, não altera CC e não reparte financeiramente um projeto entre áreas. Custos de projetos em áreas são referências potencialmente repetidas. O total de patrimônios apontados na área inclui baixados e identifica ausência de custo.
+
+Limitações: não são lidos arquivos auxiliares TFW/PRJ, imagens sem georreferenciamento embutido ou somente GCP/RPC, mapas que atravessem o antimeridiano, nem arquivos acima do limite. Imagens de câmera comuns precisam ser georreferenciadas em outro software. A prévia visual não é uma análise radiométrica: bandas não byte têm contraste por percentis 2–98 e, na ausência de RGB identificado, são usadas as primeiras bandas ou cinza. Não existe base cartográfica externa nem serviço de envio dessas imagens a terceiros.
+
+O upload e a navegação foram verificados com imagens sintéticas WGS84 e SIRGAS/UTM. Ainda não foi enviado um GeoTIFF real da mineração ou do escritório na fotografia do banco deste documento.
+
+### 6.10 Exportações
+
+- Patrimônios CSV, com proteção contra fórmulas de planilha.
+- Custos de projeto CSV, respeitando o filtro de datas.
+- GeoJSON das áreas com coordenadas e referências dos vínculos.
+- TIFF original de cada mapa, após login.
+- **Microsoft Project XML (MSPDI):** projeto completo, responsável/notas, datas previstas e uma linha por compra, com o custo rateado lançado como custo fixo. O resumo acumula, sem lançar o mesmo custo fixo novamente.
+
+No Project desktop, abrir o XML como novo projeto e salvar como `.mpp`. Compras são marcos documentais de duração zero na data do processo, não etapas de execução física concluída. Não são inventadas dependências, horas de trabalho, pagamentos ou percentuais de avanço. O cronograma precisa ser organizado no Project. A exportação não sincroniza alterações de volta à aplicação.
+
+O XML e o download foram testados. A abertura automática na instalação Microsoft Project desta máquina não pôde ser confirmada: a ativação COM falhou com `CO_E_SERVER_EXEC_FAILURE`. A exportação em si não depende do Office e não gera `.mpp` nativamente.
+
+## 7. Banco de dados
+
+| Migração | Conteúdo |
+|---|---|
+| 001 | Usuários, requisitantes, CCs, locais, produtos, compras, ativos, lotes, saldos, movimentos e auditoria |
+| 002 | Complementos da aplicação, payload de origem, conciliação e controle de login |
+| 003 | Projetos, compras_projetos e views de custos |
+| 004 | Patrimônios SGA, chave por empresa/número e situação aguardando conferência |
+| 005 | Documentos de projeto e identificação de compras coletadas pontualmente |
+| 006 | Mapas, áreas e vínculos cartográficos |
+
+Tabelas de referência: `usuarios`, `requisitantes_sga`, `centros_custo`, `locais`, `produtos`, `responsaveis`. Operação: `compras_origem`, `sincronizacoes`, `ativos`, `lotes_estoque`, `saldos_estoque`, `movimentacoes`, `auditoria`, `login_tentativas`, `projetos`, `compras_projetos`, `patrimonios_sga`, `projetos_documentos`, `mapas`, `mapas_areas`, `mapas_vinculos`. Controle de instalação: `schema_migrations`.
+
+Views: `vw_compras_custos` e `vw_apontamentos_custos`. Valores gerenciais usam DECIMAL/BCMath e truncamento em centavos; não são somados por float na regra de negócio. Imagens ficam no sistema de arquivos, com referência e metadados no banco.
+
+## 8. Rotas e serviços de operação
+
+| Rota | Finalidade |
+|---|---|
+| `/` | Parque e custos |
+| `/projetos`, `/projeto?id=...` | Lista e painel de projetos |
+| `/compras` | Triagem e conferência das compras |
+| `/ativos`, `/estoque` | Patrimônios e materiais |
+| `/mapas`, `/mapa?id=...` | Mapas e áreas |
+| `/historico` | Movimentos e auditoria |
+| `/cadastros` | Locais, centros de custo e responsáveis |
+| `/integracao` | Configuração e sincronização, apenas administrador |
+| `/conta` | Troca da própria senha |
+| `/saude` | Saúde do acesso ao banco local |
+| `/projeto-exportar`, `/projeto-project` | CSV filtrado e Project XML integral |
+| `/mapa-imagem`, `/mapa-original`, `/mapa-exportar` | Prévia privada, TIFF e GeoJSON |
+
+As alterações são feitas por POST com CSRF; os serviços são chamados pelo controlador. Arquivos da pasta `storage` não são servidos diretamente. A rota de saúde é uma verificação local simples, não uma monitoria completa da integração SGA.
+
+## 9. Instalação e uso em outra máquina
+
+Requisitos desta versão: Windows, XAMPP em `C:\xampp`, PHP 8.2 com PDO MySQL, BCMath, mbstring, sodium, DOM e suporte a processos; MariaDB compatível; PowerShell/.NET para a ponte SQL Server; Python 3.12 e dependências geográficas quando usar mapas.
+
+1. Clone o repositório em diretório próprio.
+2. Execute `INSTALAR-E-INICIAR.bat` ou `bin/iniciar.ps1`.
+3. O instalador cria o MariaDB próprio na porta 3308, aplica migrações ainda não registradas e gera credenciais aleatórias.
+4. Leia o arquivo local de acesso inicial. Ele não existe no repositório e será diferente em cada instalação.
+5. Configure a origem pela interface, conecte à VPN e valide uma consulta somente de leitura.
+6. Configure Python e instale `requirements-geo.txt` em `storage/geo-runtime` para usar TIFF.
+
+O instalador usa a instância MariaDB dedicada que o script prepara; não deve ser apontado inadvertidamente para um banco de terceiros. Não copie o `.env.example` vazio sobre o ambiente instalado: o instalador gera `.env` automaticamente em instalação nova. Em instalação manual, preencha todas as variáveis corretamente, inclusive `APP_KEY` e senha do banco.
+
+O runtime Python da máquina de origem não é portátil nem incluído no Git. Defina `MAP_PYTHON` no novo `.env` antes de usar mapas. Os scripts locais têm caminhos XAMPP e portas definidos no código; adaptar para Linux, serviço Windows, Apache/IIS/Nginx ou outro layout exige homologação específica.
+
+O servidor PHP embutido é para testes. Ele pode ficar ocupado durante uma importação ou conversão; ainda não existe fila/worker para processamento de mapas grandes ou sincronizações.
+
+## 10. Backup, restauração e atualização
+
+`bin/backup.php` usa `mysqldump`, com transação consistente, rotinas e triggers, e salva em `storage/backups`. O nome atual do arquivo começa com `antes-projetos-`, mas o dump cobre o banco `salinas_ti` inteiro. Essa rotina não é um agendamento nem um backup completo dos arquivos.
+
+Além do dump, guardar em local privado e controlado:
+
+- `.env`, especialmente `APP_KEY`, necessário para decifrar a conexão.
+- `storage/sga.json` e, quando necessário para a instância local, `storage/maria-admin.json`.
+- `storage/mapas` com TIFFs e PNGs.
+- Configurações, versão exata do código e dependências geográficas.
+- Evidências internas, se a organização decidir mantê-las.
+
+Não copiar a pasta do MariaDB em execução como substituto de um backup consistente. Ainda não existe restauração assistida na interface. Para restaurar, homologar a recuperação do dump com triggers e dos arquivos privados em uma instalação isolada antes de substituir o ambiente em uso.
+
+Atualizações de código devem preservar `.env`, acesso inicial, banco, mapas, logs e backups. Executar novas migrações pelo instalador após backup. Nesta entrega foram criadas cópias do código alterado em `storage/backups/codigo-*` antes de aplicar os módulos.
+
+## 11. Testes e evidências
+
+### 11.1 Verificações executadas no ambiente local
+
+- Lint PHP e verificação sintática do JavaScript.
+- Migrações reais MariaDB, sincronização idempotente e preservação de inventário.
+- Patrimônios, alocação, transferência, devolução, manutenção e baixa.
+- Quantidade fracionária, consumo, bloqueios de saldo e incorporação excedente.
+- Imutabilidade do histórico e divergências de origem.
+- Projetos, rateio 60/40, limite 100%, rollback de lote, edição concorrente e orçamento.
+- Associação patrimonial, ambiguidades, conferência e preservação de estado local.
+- Períodos rápidos, data final inclusiva, intervalos inválidos, projeto vazio e custos globais.
+- RC/processo, importação pontual fora dos quatro requisitantes e não duplicação RC/ordem.
+- GeoTIFF WGS84 e SIRGAS/UTM, rejeição de TIFF sem coordenadas e polígonos inválidos.
+- Upload HTTP multipart, sessão, CSRF, imagem privada, vínculos de projeto e exportação GeoJSON.
+- Interação no navegador: desenho de três vértices por teclado e zoom.
+- Microsoft Project XML: estrutura oficial, Unicode, IDs, custo total, ausência de progresso inventado, download autenticado e projeto completo independente do filtro.
+
+As verificações completas criam bancos temporários com nomes exclusivos, não usam o banco operacional como área de teste e descartam apenas suas próprias bases. A conta web não tem DDL; as rotinas CLI de teste usam a credencial administrativa privada para criar essas bases. Elas não devem ser executadas contra uma instalação cujo estado/configuração não foi conferido.
+
+### 11.2 O que o clone permite testar
+
+`bin/verificar-publicacao.php` é um teste portátil sem banco nem rede. Os testes completos dependem de arquivos internos de `evidencias/`, além da instância MariaDB privada. Esses arquivos são excluídos da publicação para não divulgar compras, patrimônios e dados da empresa.
+
+Exemplos de evidências locais necessárias: `coleta-minerion.json`, `patrimonios-identificados.json`, `custos-imobilizado.json` e documento de processo. O teste Project usa também o XSD oficial da Microsoft; o teste de mapas usa fixtures sintéticas criadas por `bin/criar-geotiff-teste.py`. O repositório não deve alegar que esses testes completos são autossuficientes em um clone limpo.
+
+## 12. Pendências e limites de homologação
+
+| Item | Situação atual / próximo passo |
+|---|---|
+| Conexão direta com SGA | As tentativas locais anteriores expiraram pela rede/VPN. Consultas e relações foram verificadas pelo Metabase. Validar a conexão da aplicação na rede definitiva. |
+| Inventário físico | Os 67 bens ainda aguardavam conferência no levantamento. Confirmar situação, local, CC e responsável. |
+| Cobertura do parque | Resolver ambiguidades e registros sem patrimônio e incluir bens ainda fora da coleta. |
+| Projeto e compras | Projeto existe, mas ainda sem rateios na fotografia atual. Informar RC/ordem, conferir itens e confirmar vínculos. |
+| Mapas reais | Enviar imagem georreferenciada da mineração/escritório e conferir a precisão das áreas. |
+| Microsoft Project | Fazer abertura manual do XML e revisar o cronograma no aplicativo desktop. |
+| Regras fiscais | Homologar significado dos status e tratamento de devoluções; não calcular saldo líquido fiscal por suposição. |
+| Acesso por CC | Não há escopo por centro de custo nas consultas; planejar se necessário antes de distribuir acesso amplo. |
+| Usuários e autenticação | Cadastro completo/SSO/AD e políticas organizacionais ainda não implementados. |
+| Produção | Substituir servidor de teste, homologar TLS, certificados, conta SQL de leitura, serviço e processos em segundo plano. |
+| Backup | Definir retenção, proteção, agendamento e ensaiar restauração do banco e imagens. |
+| Testes distribuídos | Criar dataset integral sintético se for necessário rodar toda a suíte fora do ambiente privado. |
+
+Esse estado é uma base funcional para testes, não comprovação de aceite de produção. Funcionalidade implementada e teste sintético aprovado não substituem conferência da rede, dos dados físicos ou das regras da operação.
+
+## 13. Publicação no GitHub
+
+Repositório escolhido: **Pontesrrafael/salinas-ti**, privado. Branch inicial: `main`. O código publicado é um snapshot revisado da instalação, com documentação atualizada. A instalação operacional permanece na pasta informada; ela não é automaticamente atualizada quando alguém altera o repositório.
+
+Excluídos: `.env`, credenciais iniciais, `storage` operacional, banco, backups, logs, sessões, mapas reais, coletas e evidências internas. Incluídos: código, migrações, consultas, scripts, documentação, logos oficiais e fontes com a licença existente. A marca continua sendo da Salinas Gold e o repositório não concede licença de software livre implicitamente.
+
+O primeiro commit e o estado confirmado da publicação serão informados ao finalizar a entrega. A URL neste documento identifica o destino planejado; só a confirmação do envio comprova que o repositório está publicado.
+
+## 14. Referências
+
+- [Salinas Access Gate](https://github.com/Pontesrrafael/salinas-access-gate)
+- [Microsoft — formatos de importação e exportação no Project](https://support.microsoft.com/en-us/project/export-or-import-data-to-another-file-format)
+- [Microsoft — esquema Project XML](https://schemas.microsoft.com/project/2007/)
+- [Rasterio — reprojeção](https://rasterio.readthedocs.io/en/stable/topics/reproject.html)
+- [GDAL — GeoTIFF](https://gdal.org/en/stable/drivers/raster/gtiff.html)
+
+Guias específicos incluídos: [Mapas e áreas](MAPAS-E-AREAS.md), [Project XML](EXPORTAR-MICROSOFT-PROJECT.md), [Filtros de datas](FILTROS-DE-DATAS.md), [Projetos](PROJETOS-E-CUSTOS.md), [Parque e custos](PAINEL-PARQUE-CUSTOS.md), [Patrimônios SGA](ATIVOS-SGA.md) e [Identidade visual](IDENTIDADE-VISUAL.md). Em caso de divergência com um guia antigo, conferir primeiro o código atual e este documento consolidado.

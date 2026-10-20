@@ -1,0 +1,43 @@
+CREATE TABLE mapas (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ nome VARCHAR(180) NOT NULL,
+ unidade VARCHAR(180) NOT NULL,
+ arquivo CHAR(32) NOT NULL UNIQUE,
+ original_nome VARCHAR(200) NOT NULL,
+ metadados_json LONGTEXT NOT NULL,
+ criado_por BIGINT UNSIGNED NOT NULL,
+ criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(criado_por) REFERENCES usuarios(id)
+) ENGINE=InnoDB;
+CREATE TABLE mapas_areas (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ mapa_id BIGINT UNSIGNED NOT NULL,
+ nome VARCHAR(180) NOT NULL,
+ descricao TEXT NOT NULL,
+ poligono_json LONGTEXT NOT NULL,
+ geojson LONGTEXT NOT NULL,
+ criado_por BIGINT UNSIGNED NOT NULL,
+ criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE(mapa_id,nome),
+ FOREIGN KEY(mapa_id) REFERENCES mapas(id),
+ FOREIGN KEY(criado_por) REFERENCES usuarios(id)
+) ENGINE=InnoDB;
+CREATE TABLE mapas_vinculos (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ area_id BIGINT UNSIGNED NOT NULL,
+ ativo_id BIGINT UNSIGNED NULL,
+ projeto_id BIGINT UNSIGNED NULL,
+ compra_id BIGINT UNSIGNED NULL,
+ observacao VARCHAR(500) NOT NULL,
+ atualizado_por BIGINT UNSIGNED NOT NULL,
+ atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ CHECK ((ativo_id IS NOT NULL)+(projeto_id IS NOT NULL)+(compra_id IS NOT NULL)=1),
+ UNIQUE(ativo_id),
+ UNIQUE(area_id,projeto_id),
+ UNIQUE(area_id,compra_id),
+ FOREIGN KEY(area_id) REFERENCES mapas_areas(id),
+ FOREIGN KEY(ativo_id) REFERENCES ativos(id),
+ FOREIGN KEY(projeto_id) REFERENCES projetos(id),
+ FOREIGN KEY(compra_id) REFERENCES compras_origem(id),
+ FOREIGN KEY(atualizado_por) REFERENCES usuarios(id)
+) ENGINE=InnoDB;
