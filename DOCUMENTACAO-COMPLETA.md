@@ -407,6 +407,8 @@ Os 12 casos ambíguos do 768 aparecem em **Pendências de associação** e preci
 
 Os 18 ativos associados vêm do CC 802.
 
+**10:55 — Relatórios.** **Gerar relatório** com sincronização (SGA: 421 compras no escopo). O relatório do CC 1290 em todo o histórico deu **R$ 115.085,10** no pedido e **R$ 114.845,10** com NF, **iguais ao SGA**. Seleção múltipla 1290 + 802 no **ano atual**: **R$ 158.930,37** em 86 linhas, sendo 1290 = R$ 87.305,10 (13 linhas) e 802 = R$ 71.625,27 (73 linhas; patrimônios R$ 21.111,09 em 9 bens). A soma por CC fecha com o total geral, porque não há sobreposição entre os dois.
+
 Ajustes feitos depois dessa verificação:
 - O painel **Atualizar compras** dizia só "Consulta os requisitantes configurados: 768", o que dava a impressão de que o CC fora ignorado. Agora mostra também os CCs.
 - A tela **Patrimônios** ganhou a lista **Bens do imobilizado sem número de patrimônio**, filtrada pelo escopo, com descrição, NF, valor, compra e CC do bem.
