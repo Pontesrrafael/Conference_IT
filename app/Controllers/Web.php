@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 use App\Core\Database as DB;
 use App\Services\Integracao;
+use App\Services\Requisitantes;
 use App\Services\Inventario;
 use App\Services\Projetos;
 use App\Services\ProjectXml;
@@ -119,7 +120,7 @@ final class Web {
             self::view('error',['title'=>'Verificação necessária','message'=>$message]);
         }
     }
-    private static function back(string $p): string { return match($p){'/mapa-upload'=>'/mapas','/mapa-area','/mapa-vincular','/mapa-desvincular'=>'/mapa?id='.(int)($_POST['mapa_id']??0),'/projeto-salvar'=>'/projetos','/projeto-documento-buscar','/projeto-documento-confirmar'=>'/projeto?id='.(int)($_POST['projeto_id']??0).'#documento-coleta','/projeto-apontar','/projeto-desvincular'=>(($_POST['voltar_compras']??'')==='1'?'/compras':'/projeto?id='.(int)($_POST['projeto_id']??0)),'/triagem','/incorporar'=>'/compras','/mover-ativo','/patrimonio-conferir','/patrimonio-associar'=>'/ativos','/mover-material'=>'/estoque','/cadastro'=>'/cadastros','/sga-salvar','/sga-sincronizar'=>'/integracao','/senha'=>'/conta',default=>'/'}; }
+    private static function back(string $p): string { return match($p){'/mapa-upload'=>'/mapas','/mapa-area','/mapa-vincular','/mapa-desvincular'=>'/mapa?id='.(int)($_POST['mapa_id']??0),'/projeto-salvar'=>'/projetos','/projeto-documento-buscar','/projeto-documento-confirmar'=>'/projeto?id='.(int)($_POST['projeto_id']??0).'#documento-coleta','/projeto-apontar','/projeto-desvincular'=>(($_POST['voltar_compras']??'')==='1'?'/compras':'/projeto?id='.(int)($_POST['projeto_id']??0)),'/triagem','/incorporar'=>'/compras','/mover-ativo','/patrimonio-conferir','/patrimonio-associar'=>'/ativos','/mover-material'=>'/estoque','/cadastro'=>'/cadastros','/sga-salvar','/sga-sincronizar','/sga-requisitante','/sga-requisitante-remover'=>'/integracao','/senha'=>'/conta',default=>'/'}; }
     private static function login(): never {
         $email=strtolower(trim((string)($_POST['email']??''))); $key=hash('sha256',$email.'|'.($_SERVER['REMOTE_ADDR']??''));
         $t=DB::one('SELECT * FROM login_tentativas WHERE chave=?',[$key]);
@@ -174,6 +175,20 @@ final class Web {
                     }
                     DB::audit($table,DB::pdo()->lastInsertId(),'criar',null,['nome'=>$name],$actor);
                 }); break;
+            case '/sga-requisitante':
+                if($u['perfil']!=='admin') throw new RuntimeException('Permissão insuficiente.');
+                $before=Requisitantes::lista();
+                $req=Requisitantes::adicionar($_POST['requisitante_id']??'');
+                DB::audit('integracao','requisitantes','adicionar',['ids'=>$before],$req,$actor);
+                $_SESSION['success']='Requisitante '.$req['codigo'].' — '.$req['nome'].($req['adicionado']?' adicionado. Execute a sincronização para carregar suas compras.':' já está incluído nas consultas.');
+                url('/integracao');
+            case '/sga-requisitante-remover':
+                if($u['perfil']!=='admin') throw new RuntimeException('Permissão insuficiente.');
+                $before=Requisitantes::lista();
+                $req=Requisitantes::remover($_POST['requisitante_id']??'');
+                DB::audit('integracao','requisitantes','remover',['ids'=>$before],$req,$actor);
+                $_SESSION['success']='Requisitante '.$req['codigo'].($req['removido']?' removido das próximas consultas. O histórico importado foi preservado.':' já está fora da consulta.');
+                url('/integracao');
             case '/sga-salvar':
                 if($u['perfil']!=='admin') throw new RuntimeException('Permissão insuficiente.');
                 Integracao::salvar($_POST); DB::audit('integracao','sga','configurar',null,['servidor'=>$_POST['servidor'],'banco'=>$_POST['banco']],$actor); break;

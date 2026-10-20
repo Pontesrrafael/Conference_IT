@@ -5,6 +5,7 @@ use App\Core\Database as DB;
 use RuntimeException;
 final class PatrimoniosSga {
     public static function normalizar(array $rows): array {
+        $permitidos=Requisitantes::lista();
         $groups=[];
         foreach($rows as $r) {
             $id=(int)($r['imobilizado_item_id']??0);
@@ -16,8 +17,8 @@ final class PatrimoniosSga {
         }
         $out=[];
         foreach($groups as $g) {
-            if(!array_intersect(array_keys($g['req']),[756,772,316,1318])) continue;
-            $r=$g['row']; $r['compras_candidatas']=array_keys($g['compras']);
+            if(!array_intersect(array_keys($g['req']),$permitidos)) continue;
+            $r=$g['row']; $r['compras_candidatas']=array_keys($g['compras']); $r['requisitantes_candidatos']=array_keys($g['req']);
             $text=trim((string)($r['patrimonio_texto']??''));
             $r['patrimonio']=$text!==''?$text:((int)($r['patrimonio_numerico']??0)>0?(string)$r['patrimonio_numerico']:null);
             if($r['patrimonio']!==null && mb_strlen($r['patrimonio'])>80) throw new RuntimeException('Número de patrimônio excede o tamanho permitido.');
@@ -43,7 +44,19 @@ final class PatrimoniosSga {
                     $stage=DB::one('SELECT * FROM patrimonios_sga WHERE imobilizado_item_id=?',[$source]);
                     self::associar($stage,$actor); $updated=DB::one('SELECT situacao FROM patrimonios_sga WHERE id=?',[$stage['id']]); $stats[$updated['situacao']]++;
                 }
-                if($fonte==='sga') DB::run('UPDATE patrimonios_sga SET origem_presente=0,situacao=\'conflito\',motivo=\'Registro não retornou na última consulta; conferir origem.\' WHERE imobilizado_item_id NOT IN ('.implode(',',array_fill(0,count($seen),'?')).')',$seen);
+                if($fonte==='sga') {
+                    $scope=Requisitantes::lista();
+                    $purchases=DB::all('SELECT origem_item_id FROM compras_origem WHERE requisitante_codigo IN ('.implode(',',array_fill(0,count($scope),'?')).')',$scope);
+                    $purchaseIds=array_column($purchases,'origem_item_id');
+                    $missing=DB::all('SELECT id,candidatos_json,payload_json FROM patrimonios_sga WHERE imobilizado_item_id NOT IN ('.implode(',',array_fill(0,count($seen),'?')).')',$seen);
+                    foreach($missing as $stage) {
+                        $payload=json_decode($stage['payload_json'],true,512,JSON_THROW_ON_ERROR);
+                        $reqs=$payload['requisitantes_candidatos']??[$payload['requisitante_id']??0];
+                        $candidates=json_decode($stage['candidatos_json'],true,512,JSON_THROW_ON_ERROR);
+                        if(!array_intersect($scope,$reqs) && !array_intersect($purchaseIds,$candidates)) continue;
+                        DB::run("UPDATE patrimonios_sga SET origem_presente=0,situacao='conflito',motivo='Registro não retornou na última consulta; conferir origem.' WHERE id=?",[$stage['id']]);
+                    }
+                }
                 DB::audit('patrimonios_sga','coleta','sincronizar',null,['fonte'=>$fonte,'resumo'=>$stats],$actor);
                 return $stats;
             });

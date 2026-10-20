@@ -16,7 +16,7 @@ final class DocumentosCompra {
         $number=self::numero($p['documento_numero']??'');$company=self::numero($p['documento_empresa']??'',true);
         $read=$reader??static fn(string $sql)=>Integracao::executarSql($sql);
         $sql=(string)file_get_contents(ROOT.'/database/queries/minerion_coleta.sql');
-        $scope='i.IPCOFUNREQ IN (756,772,316,1318)';
+        $scope='i.IPCOFUNREQ IN ({{REQUISITANTES_SGA}})';
         if($type==='processo') $where='(p.PCOCOD='.$number.' OR p.PCONUM='.$number.')';
         else $where="EXISTS (SELECT 1 FROM dbo.ITEMPENDENCIACOMPRA rc WHERE rc.IPCOMPCOM=$number AND (rc.IPCOMCOD=i.IPCOIPCOM OR EXISTS(SELECT 1 FROM dbo.PCOMITEMPROCESSOCOMPRA rel WHERE rel.PIPCOIPCO=i.IPCOCOD AND rel.PIPCOIPCOM=rc.IPCOMCOD)))";
         if($company!==null)$where.=' AND p.PCOEMP='.$company;

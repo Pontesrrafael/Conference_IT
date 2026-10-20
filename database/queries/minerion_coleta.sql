@@ -1,5 +1,5 @@
 -- SQL Server / Minerion SGA. Uma linha por IPCOCOD; não representa saldo físico.
--- Requisitantes confirmados: 756, 772 (corrigido pelo usuário), 316, 1318.
+-- Escopo preenchido pela configuração de requisitantes da aplicação.
 SELECT i.IPCOCOD AS origem_item_id, p.PCOCOD AS processo_id, p.PCONUM AS processo_numero,
  p.PCOEMP AS empresa_id,p.PCOFIL AS filial_id,p.PCOSIT AS processo_situacao,
  CASE WHEN p.PCODATA > '19000101' THEN p.PCODATA END AS processo_data,
@@ -31,5 +31,5 @@ OUTER APPLY (
  JOIN dbo.NOTAFISCALENTRADA nf ON nf.NFECOD=ni.INFENFE
  WHERE v.FIPCOIPCO=i.IPCOCOD AND v.FIPCOQUANT>0 AND nf.NFESIT=1
 ) n
-WHERE i.IPCOFUNREQ IN (756,772,316,1318)
+WHERE i.IPCOFUNREQ IN ({{REQUISITANTES_SGA}})
 ORDER BY i.IPCOCOD

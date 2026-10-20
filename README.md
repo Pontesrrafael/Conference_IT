@@ -54,3 +54,8 @@ O repositório contém código, migrações, consultas SQL, marca e documentaç�
 O histórico local não representa um inventário físico completo da empresa. Compras não são incorporadas automaticamente ao estoque; custos de parque e projetos podem se sobrepor e não devem ser somados. Mudanças no Microsoft Project não voltam automaticamente à aplicação.
 
 Uso interno Salinas Gold. Os recursos de marca e a fonte Author mantêm seus direitos e licenças originais. A publicação não concede licença aberta sobre o projeto ou sobre a identidade visual.
+
+
+## Parâmetros de requisitantes
+
+Veja [Requisitantes SGA](REQUISITANTES-SGA.md) para adicionar IDs pela interface e incluí-los nas consultas de compras e patrimônios.

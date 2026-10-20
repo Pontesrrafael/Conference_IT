@@ -22,7 +22,7 @@ A referência de estrutura é o [Salinas Access Gate](https://github.com/Pontesr
 | DocumentRoot | `D:\Apps_SG\Est_Sg\public` |
 | Banco da aplicação | MariaDB `salinas_ti`, em `127.0.0.1:3308` |
 | Arquivos físicos do MariaDB | `D:\Apps_SG\Est_Sg\storage\mariadb` |
-| Configuração privada | `.env` e `storage/sga.json` |
+| Configuração privada | `.env`, `storage/sga.json` e `storage/requisitantes.json` |
 | Acesso inicial gerado | `ACESSO-LOCAL.txt` — privado e fora do Git |
 | Mapas originais e prévias | `storage/mapas` — privado e fora do Git |
 | Backups e logs | `storage/backups` e `storage/logs` |
@@ -124,7 +124,7 @@ Não há cadastro completo de usuários pela interface nem SSO/Active Directory.
 
 ### 6.2 Integração e compras SGA
 
-O escopo padrão usa os requisitantes **756, 772, 316 e 1318**. O código 772 foi confirmado para Fernando Silva; 722 está excluído. Coletas pontuais por documento podem trazer todos os itens do documento solicitado, inclusive de outros requisitantes, e não são invalidadas apenas por estarem fora dos quatro códigos na sincronização geral.
+O escopo inicial usa os requisitantes **756, 772, 316 e 1318**. A partir da revisão de 20/10/2026, o administrador pode adicionar ou remover IDs (FUNCOD) em **Integração → Parâmetros da consulta**; a lista fica em `storage/requisitantes.json` e é aplicada às consultas de compras e patrimônios pelo marcador `{{REQUISITANTES_SGA}}`. Detalhes em [Requisitantes SGA](REQUISITANTES-SGA.md). O código 772 foi confirmado para Fernando Silva; 722 está excluído. Coletas pontuais por documento podem trazer todos os itens do documento solicitado, inclusive de outros requisitantes, e não são invalidadas apenas por estarem fora dos quatro códigos na sincronização geral.
 
 Relações principais verificadas na origem:
 
@@ -284,7 +284,7 @@ O servidor PHP embutido é para testes. Ele pode ficar ocupado durante uma impor
 Além do dump, guardar em local privado e controlado:
 
 - `.env`, especialmente `APP_KEY`, necessário para decifrar a conexão.
-- `storage/sga.json` e, quando necessário para a instância local, `storage/maria-admin.json`.
+- `storage/sga.json`, `storage/requisitantes.json` (escopo de requisitantes) e, quando necessário para a instância local, `storage/maria-admin.json`.
 - `storage/mapas` com TIFFs e PNGs.
 - Configurações, versão exata do código e dependências geográficas.
 - Evidências internas, se a organização decidir mantê-las.
@@ -305,7 +305,8 @@ Atualizações de código devem preservar `.env`, acesso inicial, banco, mapas, 
 - Projetos, rateio 60/40, limite 100%, rollback de lote, edição concorrente e orçamento.
 - Associação patrimonial, ambiguidades, conferência e preservação de estado local.
 - Períodos rápidos, data final inclusiva, intervalos inválidos, projeto vazio e custos globais.
-- RC/processo, importação pontual fora dos quatro requisitantes e não duplicação RC/ordem.
+- RC/processo, importação pontual fora do escopo de requisitantes e não duplicação RC/ordem.
+- Requisitantes configuráveis (`bin/verificar-requisitantes.php`, portátil): IDs inválidos/inexistentes, duplicidade, remoção seletiva, bloqueio do último ID e aplicação nas consultas.
 - GeoTIFF WGS84 e SIRGAS/UTM, rejeição de TIFF sem coordenadas e polígonos inválidos.
 - Upload HTTP multipart, sessão, CSRF, imagem privada, vínculos de projeto e exportação GeoJSON.
 - Interação no navegador: desenho de três vértices por teclado e zoom.
@@ -315,7 +316,7 @@ As verificações completas criam bancos temporários com nomes exclusivos, não
 
 ### 11.2 O que o clone permite testar
 
-`bin/verificar-publicacao.php` é um teste portátil sem banco nem rede. Os testes completos dependem de arquivos internos de `evidencias/`, além da instância MariaDB privada. Esses arquivos são excluídos da publicação para não divulgar compras, patrimônios e dados da empresa.
+`bin/verificar-publicacao.php` e `bin/verificar-requisitantes.php` são testes portáteis sem banco nem rede. Os testes completos dependem de arquivos internos de `evidencias/`, além da instância MariaDB privada. Esses arquivos são excluídos da publicação para não divulgar compras, patrimônios e dados da empresa.
 
 Exemplos de evidências locais necessárias: `coleta-minerion.json`, `patrimonios-identificados.json`, `custos-imobilizado.json` e documento de processo. O teste Project usa também o XSD oficial da Microsoft; o teste de mapas usa fixtures sintéticas criadas por `bin/criar-geotiff-teste.py`. O repositório não deve alegar que esses testes completos são autossuficientes em um clone limpo.
 
