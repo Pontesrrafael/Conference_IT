@@ -525,6 +525,11 @@ Publicação inicial confirmada na branch `main`: commit `d5d3d5ca207e0a02831963
 
 O primeiro envio contém 85 arquivos revisados. A verificação de publicação não encontrou os segredos da instalação nem arquivos operacionais na cópia preparada. O `.gitignore` mantém essas exclusões para novos commits. O teste portátil e a sintaxe PHP/JavaScript passaram antes da publicação.
 
+**20/10/2026, 15:50: envio da base local.** A instalação foi conferida arquivo por arquivo contra o repositório local antes do envio. Só diferiram os PNGs, por um bloco de metadados que a transferência acrescenta, e o arquivo removido `indicadores-tv.php`, que foi movido para `storage/_to_delete`. Também foi feita uma varredura de segredos no código e no histórico, sem nada encontrado.
+- A branch `sync/base-local-requisitantes` (16 commits sobre `8a9cf77`) foi enviada ao GitHub.
+- O **PR #1** está aberto para revisão: https://github.com/Pontesrrafael/salinas-ti/pull/1.
+- A `main` só muda depois que você mesclar o PR.
+
 ## 14. Referências
 
 - [Salinas Access Gate](https://github.com/Pontesrrafael/salinas-access-gate)
