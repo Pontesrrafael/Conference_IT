@@ -55,6 +55,7 @@ final class Integracao {
     }
     public static function sincronizar(?int $actor): array {
         // Ler ambas as origens antes de alterar a carga local.
+        CentrosCusto::atualizarExpansao(static fn(string $sql)=>self::executarSql($sql)); // novos CCs filhos passam a valer
         $compras=self::consultar(); $patrimonios=self::consultar('patrimonios');
         // O resultado normalizado (já filtrado pelos requisitantes atuais) decide; a lista bruta pode ter itens fora do escopo.
         if(!PatrimoniosSga::normalizar($patrimonios)) throw new RuntimeException('Nenhum patrimônio retornou para os requisitantes atuais; sincronização não iniciada e dados anteriores preservados.');
@@ -72,7 +73,7 @@ final class Integracao {
         try {
             DB::run("INSERT INTO sincronizacoes(situacao,fonte) VALUES('executando',?)",[$fonte]); $id=(int)DB::pdo()->lastInsertId();
             DB::transaction(function() use($rows,$id,$actor,$fonte,$escopoRestrito) {
-                $permitidos=Requisitantes::lista(); // lido uma vez: mesmo escopo para toda a importação
+                $permitidos=Requisitantes::lista(); $centrosEscopo=CentrosCusto::lista(); // lidos uma vez: mesmo escopo para toda a importação
                 foreach($rows as $r) {
                     DB::run('INSERT INTO requisitantes_sga(codigo,nome,coletar) VALUES(?,?,?) ON DUPLICATE KEY UPDATE nome=VALUES(nome),coletar=VALUES(coletar)',[(int)$r['requisitante_id'],$r['requisitante_nome']?:'Não informado',in_array((int)$r['requisitante_id'],$permitidos,true)?1:0]);
                     $old=DB::one('SELECT * FROM compras_origem WHERE origem_item_id=? FOR UPDATE',[$r['origem_item_id']]);
@@ -103,7 +104,8 @@ final class Integracao {
                 }
                 if($fonte==='sga') {
                     $scope=$permitidos;
-                    DB::run('UPDATE compras_origem SET origem_presente=0,conciliacao_pendente=1 WHERE ultima_sincronizacao_id<>? AND entrada_documento=0 AND requisitante_codigo IN ('.implode(',',array_fill(0,count($scope),'?')).')',[$id,...$scope]);
+                    $ccClause=$centrosEscopo?' OR centro_custo_compra_id IN (SELECT id FROM centros_custo WHERE sga_codigo IN ('.implode(',',array_fill(0,count($centrosEscopo),'?')).'))':'';
+                    DB::run('UPDATE compras_origem SET origem_presente=0,conciliacao_pendente=1 WHERE ultima_sincronizacao_id<>? AND entrada_documento=0 AND (requisitante_codigo IN ('.implode(',',array_fill(0,count($scope),'?')).')'.$ccClause.')',[$id,...$scope,...$centrosEscopo]);
                 }
                 DB::run("UPDATE sincronizacoes SET situacao='concluida',fim=NOW(),linhas_lidas=? WHERE id=?",[count($rows),$id]);
                 DB::audit('sincronizacoes',$id,'importar',null,['fonte'=>$fonte,'linhas'=>count($rows)],$actor);

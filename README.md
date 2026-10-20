@@ -59,3 +59,7 @@ Uso interno Salinas Gold. Os recursos de marca e a fonte Author mantêm seus dir
 ## Parâmetros de requisitantes
 
 Veja [Requisitantes SGA](REQUISITANTES-SGA.md) para adicionar IDs pela interface e incluí-los nas consultas de compras e patrimônios.
+
+Veja [Centros de custo SGA](CENTROS-CUSTO-SGA.md) para incluir centros de custo do SGA (com ou sem filhos) no escopo da consulta.
+
+Verificação rápida sem dados internos: `php bin/verificar-publicacao.php`, `php bin/verificar-requisitantes.php` e `php bin/verificar-centros-custo.php`. Com o MariaDB da instalação ativo: `php bin/verificar-ponta-a-ponta.php`.

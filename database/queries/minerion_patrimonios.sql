@@ -5,7 +5,7 @@ WITH notas_escopo AS (
  FROM dbo.ITEMPROCESSOCOMPRA i
  JOIN dbo.FATITEMPROCESSOCOMPRA f ON f.FIPCOIPCO=i.IPCOCOD AND f.FIPCOQUANT>0
  JOIN dbo.ITEMNOTAFISCALENTRADA ni ON ni.INFECOD=f.FIPCOINFE
- WHERE i.IPCOFUNREQ IN ({{REQUISITANTES_SGA}})
+ WHERE (i.IPCOFUNREQ IN ({{REQUISITANTES_SGA}}) OR i.IPCOCC IN ({{CENTROS_CUSTO_SGA}}))
 ), candidatos AS (
  SELECT DISTINCT a.IBAICOD AS imobilizado_item_id,a.IBAIBAI AS bem_id,
  CAST(a.IBAIVALOR AS decimal(18,2)) AS valor_aquisicao_imobilizado,
@@ -14,7 +14,7 @@ WITH notas_escopo AS (
  a.IBAINFNUM AS numero_nota,a.IBAILOCALIZACAO AS localizacao_sga,
  a.IBAIBAIXADATA AS baixa_data,a.IBAINFDATA AS nota_data,
  b.BAINOME AS nome_bem,b.BAIEMP AS empresa_bem_id,b.BAIFIL AS filial_bem_id,b.BAICC AS centro_custo_bem_id,cc.CCNOME AS centro_custo_bem,
- i.IPCOCOD AS origem_item_id,i.IPCOFUNREQ AS requisitante_id,fu.FUNNOME AS requisitante,
+ i.IPCOCOD AS origem_item_id,i.IPCOFUNREQ AS requisitante_id,i.IPCOCC AS centro_custo_compra_id,fu.FUNNOME AS requisitante,
  i.IPCOITEM AS produto_id,e.ESTQNOME AS produto,
  ni.INFECOD AS nota_item_id,ni.INFEITEM AS produto_nota_id,
  CAST(f.FIPCOQUANT AS decimal(18,4)) AS quantidade_vinculo,

@@ -1,6 +1,6 @@
 # Salinas TI — documentação completa e estado atual
 
-**Revisão da documentação e publicação:** 20/10/2026.
+**Revisão da documentação:** 20/10/2026, 09:10 (Horário de Mato Grosso – UTC-4). Inclui requisitantes e centros de custo configuráveis e a verificação geral da aplicação (seção 11.3). Histórico na seção 15.
 
 **Referência do levantamento:** 19/10/2026, 23:18:58, horário de Cuiabá (UTC−04:00). Os totais operacionais abaixo são uma fotografia dessa consulta e mudam com o uso.
 
@@ -22,7 +22,7 @@ A referência de estrutura é o [Salinas Access Gate](https://github.com/Pontesr
 | DocumentRoot | `D:\Apps_SG\Est_Sg\public` |
 | Banco da aplicação | MariaDB `salinas_ti`, em `127.0.0.1:3308` |
 | Arquivos físicos do MariaDB | `D:\Apps_SG\Est_Sg\storage\mariadb` |
-| Configuração privada | `.env`, `storage/sga.json` e `storage/requisitantes.json` |
+| Configuração privada | `.env`, `storage/sga.json`, `storage/requisitantes.json` e `storage/centros-custo.json` |
 | Acesso inicial gerado | `ACESSO-LOCAL.txt` — privado e fora do Git |
 | Mapas originais e prévias | `storage/mapas` — privado e fora do Git |
 | Backups e logs | `storage/backups` e `storage/logs` |
@@ -92,6 +92,8 @@ app/
     PatrimoniosSga.php           conciliação do imobilizado com patrimônios
     Projetos.php                cadastro, rateios, orçamento e custos
     DocumentosCompra.php        busca por RC / ordem e apontamento em lote
+    Requisitantes.php           escopo de requisitantes (storage/requisitantes.json)
+    CentrosCusto.php            escopo por centro de custo, filhos e limites (storage/centros-custo.json)
     Periodo.php                 filtros de datas
     Parque.php                  custos e situação do parque
     Mapas.php                   uploads, áreas, vínculos e GeoJSON
@@ -125,6 +127,8 @@ Não há cadastro completo de usuários pela interface nem SSO/Active Directory.
 ### 6.2 Integração e compras SGA
 
 O escopo inicial usa os requisitantes **756, 772, 316 e 1318**. A partir da revisão de 20/10/2026, o administrador pode adicionar ou remover IDs (FUNCOD) em **Integração → Parâmetros da consulta**; a lista fica em `storage/requisitantes.json` e é aplicada às consultas de compras e patrimônios pelo marcador `{{REQUISITANTES_SGA}}`. Detalhes em [Requisitantes SGA](REQUISITANTES-SGA.md). O código 772 foi confirmado para Fernando Silva; 722 está excluído. Coletas pontuais por documento podem trazer todos os itens do documento solicitado, inclusive de outros requisitantes, e não são invalidadas apenas por estarem fora dos quatro códigos na sincronização geral.
+
+**Escopo por centro de custo (20/10/2026).** Além dos requisitantes, o administrador pode incluir centros de custo do SGA. A consulta traz a linha de compra cujo requisitante **ou** cujo CC da linha (`IPCOCC`) está configurado, com opção de incluir os CCs filhos pelo caminho `CCSTCOD`. Os limites são 300 CCs efetivos e 5.000 linhas de outros requisitantes. Detalhes, proteções e validação no SGA real estão em [Centros de custo SGA](CENTROS-CUSTO-SGA.md).
 
 Relações principais verificadas na origem:
 
@@ -253,6 +257,8 @@ Views: `vw_compras_custos` e `vw_apontamentos_custos`. Valores gerenciais usam D
 | `/historico` | Movimentos e auditoria |
 | `/cadastros` | Locais, centros de custo e responsáveis |
 | `/integracao` | Configuração e sincronização, apenas administrador |
+| `/sga-requisitante`, `/sga-requisitante-remover` | Inclui/remove requisitante do escopo (POST, admin, auditoria) |
+| `/sga-centro-custo`, `/sga-centro-custo-remover` | Inclui/remove centro de custo do escopo (POST, admin, auditoria) |
 | `/conta` | Troca da própria senha |
 | `/saude` | Saúde do acesso ao banco local |
 | `/projeto-exportar`, `/projeto-project` | CSV filtrado e Project XML integral |
@@ -284,7 +290,7 @@ O servidor PHP embutido é para testes. Ele pode ficar ocupado durante uma impor
 Além do dump, guardar em local privado e controlado:
 
 - `.env`, especialmente `APP_KEY`, necessário para decifrar a conexão.
-- `storage/sga.json`, `storage/requisitantes.json` (escopo de requisitantes) e, quando necessário para a instância local, `storage/maria-admin.json`.
+- `storage/sga.json`, `storage/requisitantes.json`, `storage/centros-custo.json` (escopo da consulta) e, quando necessário para a instância local, `storage/maria-admin.json`.
 - `storage/mapas` com TIFFs e PNGs.
 - Configurações, versão exata do código e dependências geográficas.
 - Evidências internas, se a organização decidir mantê-las.
@@ -314,11 +320,38 @@ Atualizações de código devem preservar `.env`, acesso inicial, banco, mapas, 
 
 As verificações completas criam bancos temporários com nomes exclusivos, não usam o banco operacional como área de teste e descartam apenas suas próprias bases. A conta web não tem DDL; as rotinas CLI de teste usam a credencial administrativa privada para criar essas bases. Elas não devem ser executadas contra uma instalação cujo estado/configuração não foi conferido.
 
+- Centros de custo configuráveis (`bin/verificar-centros-custo.php`, portátil): sentinela sem CC, filhos por `CCSTCOD`, limite de volume sem efeito colateral, novo filho na sincronização, importação e patrimônio pelo CC, CC 0 recusado e consultas somente leitura.
+
 ### 11.2 O que o clone permite testar
 
-`bin/verificar-publicacao.php` e `bin/verificar-requisitantes.php` são testes portáteis sem banco nem rede. Os testes completos dependem de arquivos internos de `evidencias/`, além da instância MariaDB privada. Esses arquivos são excluídos da publicação para não divulgar compras, patrimônios e dados da empresa.
+`bin/verificar-publicacao.php`, `bin/verificar-requisitantes.php` e `bin/verificar-centros-custo.php` são testes portáteis sem banco nem rede. `bin/verificar-ponta-a-ponta.php` precisa só da instância MariaDB da instalação: cria um banco temporário e usa dados sintéticos, sem evidências privadas. Os testes completos dependem de arquivos internos de `evidencias/`, além da instância MariaDB privada. Esses arquivos são excluídos da publicação para não divulgar compras, patrimônios e dados da empresa.
 
 Exemplos de evidências locais necessárias: `coleta-minerion.json`, `patrimonios-identificados.json`, `custos-imobilizado.json` e documento de processo. O teste Project usa também o XSD oficial da Microsoft; o teste de mapas usa fixtures sintéticas criadas por `bin/criar-geotiff-teste.py`. O repositório não deve alegar que esses testes completos são autossuficientes em um clone limpo.
+
+
+### 11.3 Verificação geral de 20/10/2026
+
+Executada num ambiente de análise isolado (PHP 8.3, MariaDB 10.11, Python 3.13 com Rasterio). Ali o código foi instalado do zero pelo instalador da aplicação. Nenhum dado operacional foi usado: o SGA real foi consultado somente em leitura, pelo Metabase.
+
+| Verificação | Resultado |
+|---|---|
+| Lint de todos os PHP e do JavaScript | Sem erros |
+| Instalador `bin/instalar.php` em banco vazio | 6 migrações aplicadas, usuário inicial gerado |
+| `verificar-publicacao` | OK |
+| `verificar-requisitantes` | OK |
+| `verificar-centros-custo` (novo) | OK |
+| `verificar-ponta-a-ponta` (novo, HTTP) | **48 verificações OK**: saúde, cabeçalhos CSP/nosniff, CSRF, login e bloqueio de senha errada, 14 telas, 404, escape de HTML, cadastro com auditoria, projeto, rateio 60% e bloqueio acima de 100%, custo truncado (R$ 1.800,60), triagem, CSV com BOM e proteção contra fórmula, Project XML, mapas (upload GeoTIFF, prévia PNG, área, polígono cruzado recusado, vínculo e GeoJSON), perfil consulta sem escrita e log do PHP sem avisos |
+| Sincronização com escopo por CC em MariaDB | Ausência marcada só no escopo combinado; coleta por documento preservada; linha fora do escopo recusada |
+| SQL novo no SGA real (Metabase) | Compras e patrimônios executaram; contagens conferidas (ver guia de CC) |
+| Revisão de segurança do código | SQL dinâmico só com listas fechadas ou parâmetros; uploads com extensão, tamanho e assinatura validados; saídas HTML escapadas; erros de banco não expostos |
+
+**Corrigido nesta revisão:**
+- A sincronização validava a lista bruta de patrimônios. Agora valida a lista já filtrada pelo escopo e aborta antes de importar as compras.
+- O escopo era lido a cada linha importada. Agora é lido uma vez por importação.
+- `bin/coletar.php` falhava porque carregava só `Minerion.php`. Agora usa o `bootstrap`.
+- O caminho padrão do Python para mapas apontava para a máquina onde o código foi gerado (`C:/Users/rafae/...`). Agora exige `MAP_PYTHON` no `.env`, que a instalação local já define.
+
+**Não executado:** as 8 suítes completas (`verificar-fluxos`, `-projetos`, `-parque`, `-periodos`, `-patrimonios`, `-documentos`, `-mapas`, `-project`). Elas dependem de `evidencias/coleta-minerion.json`, `patrimonios-identificados.json`, `documento-processo-29968.json`, `mspdi_pj12.xsd` e `exemplo-ms-project-teste.xml`, que **não existem na instalação atual**. A pasta `evidencias` local tem apenas os 3 TIFFs sintéticos. Essas suítes também comparam totais fixos (ex.: 1.441 linhas), então só valem com a coleta original.
 
 ## 12. Pendências e limites de homologação
 
@@ -331,11 +364,12 @@ Exemplos de evidências locais necessárias: `coleta-minerion.json`, `patrimonio
 | Mapas reais | Enviar imagem georreferenciada da mineração/escritório e conferir a precisão das áreas. |
 | Microsoft Project | Fazer abertura manual do XML e revisar o cronograma no aplicativo desktop. |
 | Regras fiscais | Homologar significado dos status e tratamento de devoluções; não calcular saldo líquido fiscal por suposição. |
-| Acesso por CC | Não há escopo por centro de custo nas consultas; planejar se necessário antes de distribuir acesso amplo. |
+| Acesso por CC | A **consulta** já pode ser filtrada por CC (seção 6.2), mas o **acesso** dos usuários ainda não é isolado por CC. Planejar antes de distribuir acesso amplo. |
 | Usuários e autenticação | Cadastro completo/SSO/AD e políticas organizacionais ainda não implementados. |
 | Produção | Substituir servidor de teste, homologar TLS, certificados, conta SQL de leitura, serviço e processos em segundo plano. |
 | Backup | Definir retenção, proteção, agendamento e ensaiar restauração do banco e imagens. |
-| Testes distribuídos | Criar dataset integral sintético se for necessário rodar toda a suíte fora do ambiente privado. |
+| Testes distribuídos | As evidências privadas das 8 suítes completas não estão na instalação atual. Recuperar de um backup ou gerar dataset sintético e trocar os totais fixos por totais calculados. `verificar-ponta-a-ponta` já cobre o fluxo principal sem evidências. |
+| Escopo por CC | Validar na interface com a VPN: incluir 1241, sincronizar e conferir as 110 linhas extras. Definir os CCs oficiais da TI. |
 
 Esse estado é uma base funcional para testes, não comprovação de aceite de produção. Funcionalidade implementada e teste sintético aprovado não substituem conferência da rede, dos dados físicos ou das regras da operação.
 
@@ -358,3 +392,13 @@ O primeiro envio contém 85 arquivos revisados. A verificação de publicação 
 - [GDAL — GeoTIFF](https://gdal.org/en/stable/drivers/raster/gtiff.html)
 
 Guias específicos incluídos: [Mapas e áreas](MAPAS-E-AREAS.md), [Project XML](EXPORTAR-MICROSOFT-PROJECT.md), [Filtros de datas](FILTROS-DE-DATAS.md), [Projetos](PROJETOS-E-CUSTOS.md), [Parque e custos](PAINEL-PARQUE-CUSTOS.md), [Patrimônios SGA](ATIVOS-SGA.md) e [Identidade visual](IDENTIDADE-VISUAL.md). Em caso de divergência com um guia antigo, conferir primeiro o código atual e este documento consolidado.
+
+## 15. Histórico de alterações
+
+| Data (UTC-4) | Alteração | Arquivos principais |
+|---|---|---|
+| 19/10/2026 | Publicação inicial no GitHub (`d5d3d5c`) e registro do estado (`8a9cf77`) | — |
+| 20/10/2026 | Requisitantes configuráveis pela interface, opção de SSL na conexão SQL Server e marcador `{{REQUISITANTES_SGA}}` (feito na base local antes desta revisão) | `Requisitantes.php`, `Web.php`, `app.php`, consultas SQL |
+| 20/10/2026 | Revisão: sincronização valida os patrimônios filtrados antes de importar; escopo lido uma vez por importação | `Integracao.php` |
+| 20/10/2026 | **Escopo por centro de custo** (união com requisitantes, filhos por `CCSTCOD`, limites 300 CCs / 5.000 linhas, auditoria, tela) | `CentrosCusto.php`, `Web.php`, `app.php`, `Minerion.php`, `PatrimoniosSga.php`, `DocumentosCompra.php`, consultas SQL |
+| 20/10/2026 | Verificação geral: novos testes `verificar-centros-custo` e `verificar-ponta-a-ponta`; correção de `bin/coletar.php` e do caminho fixo do Python | `bin/`, `Mapas.php` |

@@ -19,7 +19,7 @@ final class Requisitantes {
     public static function aplicarSql(string $sql,?array $ids=null): string {
         $ids=$ids??self::lista();
         if(!$ids) throw new RuntimeException('Selecione pelo menos um requisitante.');
-        return str_replace('{{REQUISITANTES_SGA}}',implode(',',array_map([self::class,'validar'],$ids)),$sql);
+        return CentrosCusto::aplicarSql(str_replace('{{REQUISITANTES_SGA}}',implode(',',array_map([self::class,'validar'],$ids)),$sql));
     }
     public static function remover(mixed $value): array {
         $id=self::validar($value);

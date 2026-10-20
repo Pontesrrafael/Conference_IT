@@ -40,12 +40,13 @@ final class Minerion
     public static function resumir(array $linhas, bool $restrito = true): array
     {
         $permitidos = Requisitantes::lista();
+        $centros = CentrosCusto::lista();
         $resultado = [];
         $vistos = [];
         foreach ($linhas as $linha) {
             $codigo = (int) $linha['requisitante_id'];
             $id = (int) $linha['origem_item_id'];
-            if (($restrito && !in_array($codigo, $permitidos, true)) || $id <= 0 || isset($vistos[$id])) {
+            if (($restrito && !CentrosCusto::noEscopo($codigo, (int) ($linha['centro_custo_compra_id'] ?? 0), $permitidos, $centros)) || $id <= 0 || isset($vistos[$id])) {
                 throw new RuntimeException('Coleta fora do escopo ou com chave duplicada.');
             }
             $vistos[$id] = true;
