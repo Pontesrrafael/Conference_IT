@@ -1,6 +1,6 @@
 # Salinas TI — documentação completa e estado atual
 
-**Revisão da documentação:** 20/10/2026, 14:00 (Horário de Mato Grosso – UTC-4), com verificação no navegador da instalação local (seção 11.4). Inclui requisitantes e centros de custo configuráveis, telas filtradas pelo escopo atual (seção 6.5) e a verificação geral (seção 11.3). Histórico na seção 15.
+**Revisão da documentação:** 20/10/2026, 15:00 (Horário de Mato Grosso – UTC-4), com verificação no navegador da instalação local (seção 11.4). Inclui requisitantes e centros de custo configuráveis, telas filtradas pelo escopo atual (seção 6.5) e a verificação geral (seção 11.3). Histórico na seção 15.
 
 **Referência do levantamento:** 19/10/2026, 23:18:58, horário de Cuiabá (UTC−04:00). Os totais operacionais abaixo são uma fotografia dessa consulta e mudam com o uso.
 
@@ -97,6 +97,8 @@ app/
     Relatorios.php              relatórios de gastos por CC e período, CCs novos + sincronização
     RelatorioPdf.php            layout do relatório em PDF no timbrado oficial (logotipo, faixa lateral, rodapé com endereços)
     Pdf.php                     gerador de PDF sem dependências (Helvetica/WinAnsi, PNG, polígonos, texto vertical)
+    IndicadoresTi.php           Visão Executiva de TI: metas, medições, CSV, riscos e dados do parque
+    GraficoSvg.php              gráficos SVG no servidor (linhas, rosca, barras) compatíveis com a CSP
   Assets/logo-salinas-gold-pdf.png  cópia do logotipo oficial para o PDF (bin/gerar-logo-pdf.py)
   Assets/pin-endereco-pdf.png       marcador de endereço do timbrado para o PDF (bin/gerar-logo-pdf.py)
     Periodo.php                 filtros de datas
@@ -105,7 +107,7 @@ app/
     ProjectXml.php              exportação Microsoft Project MSPDI
   Views/                        telas PHP
 database/
-  001_estrutura.sql ... 006_mapas.sql
+  001_estrutura.sql ... 007_indicadores_ti.sql
   queries/                      SELECTs da origem SQL Server
 bin/                            instalação, operação, conversão e verificações
 public/
@@ -199,6 +201,18 @@ Menu **Relatórios** (`/relatorios`). Mostra gastos por centro de custo e por pe
 - exportação CSV e **PDF no timbrado oficial da Salinas** (logotipo sobre fundo branco, faixa amarela lateral com razão social e CNPJ, rodapé com endereços e listras; A4 paisagem, paginado, gerado no servidor sem bibliotecas).
 
 Detalhes, permissões e referência de valores em [Relatórios](RELATORIOS.md).
+
+### 6.5.2 Indicadores de TI · Visão Executiva
+
+Menu **Indicadores → Visão Executiva de TI** (`/indicadores`), no padrão dos Indicadores do Salinas Access Gate. Espelha a página Visão Executiva do *SGM | Dashboard de TI* (Power BI):
+- **10 cartões com meta** (verde quando atende, vermelho quando não atende), com a variação em relação ao período anterior;
+- **parque e compras do escopo atual**: ativos, aguardando conferência, patrimônios ambíguos, bens sem número, compras e saúde da sincronização SGA;
+- **gráficos**: disponibilidade diária, controles por status, riscos por nível e parque por situação;
+- **tabela** de riscos altos em aberto;
+- **Modo TV** (`?tv=1`) com relógio e tela cheia;
+- **atualização automática** a cada 1, 5 ou 15 minutos (só o conteúdo).
+
+Nesta etapa, os valores do Zabbix, Microsoft 365, controles, licenças e rádios entram por lançamento manual ou CSV, com conferência de tudo ou nada, em **Dados dos indicadores** (admin e operador_ti). Só o administrador altera metas. Tudo fica na auditoria. Detalhes, códigos e regras em [Indicadores de TI](INDICADORES-TI.md).
 
 ### 6.6 Projetos e rateio
 
@@ -371,6 +385,7 @@ Executada num ambiente de análise isolado (PHP 8.3, MariaDB 10.11, Python 3.13 
 | `verificar-requisitantes` | OK |
 | `verificar-centros-custo` (novo) | OK |
 | `verificar-relatorio-pdf` (novo, portátil) | OK |
+| `verificar-indicadores` (novo, portátil) | OK |
 | `verificar-ponta-a-ponta` (novo, HTTP) | **69 a 72 verificações OK** em três cenários de escopo: padrão, 768 + CC 1290 e só CC 1290. Inclui escopo atual × histórico em ativos, compras, painel e bens sem número, e o filtro por origem: saúde, cabeçalhos CSP/nosniff, CSRF, login e bloqueio de senha errada, 14 telas, 404, escape de HTML, cadastro com auditoria, projeto, rateio 60% e bloqueio acima de 100%, custo truncado (R$ 1.800,60), triagem, CSV com BOM e proteção contra fórmula, Project XML, mapas (upload GeoTIFF, prévia PNG, área, polígono cruzado recusado, vínculo e GeoJSON), perfil consulta sem escrita e log do PHP sem avisos |
 | Sincronização com escopo por CC em MariaDB | Ausência marcada só no escopo combinado; coleta por documento preservada; linha fora do escopo recusada |
 | SQL novo no SGA real (Metabase) | Compras e patrimônios executaram; contagens conferidas (ver guia de CC) |
@@ -430,6 +445,13 @@ Na transferência para o computador, o PNG do logotipo recebeu um bloco extra de
 
 O Chrome abre o PDF no visualizador interno, que a automação não consegue capturar em imagem. A conferência visual foi feita na renderização do mesmo gerador com dados de exemplo.
 
+**15:15 — Visão Executiva de TI.** Sincronização às 14:22: **421 compras**; patrimônios **18 associados, 4 ambíguos, 36 sem número**. Na instalação:
+- `/indicadores` abriu com o aviso da migração 007 pendente (a instalação ainda não foi reiniciada pelo `iniciar.ps1`);
+- bloco Parque e compras: 18 ativos no parque (R$ 48.024,74), 18 aguardando conferência, 4 ambíguos, 36 bens sem número (R$ 166.076,86), R$ 3.071,80 em compras nos últimos 30 dias e sincronização "concluída · 421 linhas · há 0 h";
+- Modo TV e a tela Dados dos indicadores também abriram; a tela de dados pede a migração.
+
+Ajuste feito nessa verificação: "Patrimônios ambíguos" contava todo o histórico (22). Agora conta só o escopo atual (4), como a sincronização.
+
 Ajustes feitos depois dessa verificação:
 - O painel **Atualizar compras** dizia só "Consulta os requisitantes configurados: 768", o que dava a impressão de que o CC fora ignorado. Agora mostra também os CCs.
 - A tela **Patrimônios** ganhou a lista **Bens do imobilizado sem número de patrimônio**, filtrada pelo escopo, com descrição, NF, valor, compra e CC do bem.
@@ -454,6 +476,7 @@ Ajustes feitos depois dessa verificação:
 | Bens sem número no SGA | 16 bens do escopo estão no imobilizado sem número de patrimônio (7 do CC 1290, rede óptica). Pedir à Contabilidade/Patrimônio o registro dos números e sincronizar de novo. |
 | Sincronização com SSL | Em 20/10 a ponte SQL Server falhou com "cadeia de certificação não confiável" e a conexão foi salva **sem SSL**. Para homologar: reativar SSL e marcar "Confiar no certificado" (teste) ou instalar a CA do servidor SQL (produção). |
 | PDF no timbrado | Validar o layout com a Comunicação/Marketing (A4 paisagem e Helvetica, enquanto o modelo Word é retrato com Author/Poppins). Se o timbrado mudar, atualizar `RelatorioPdf::ENDERECOS`/`CNPJ` e rodar `bin/gerar-logo-pdf.py`. |
+| Indicadores de TI | Rodar o **iniciar.ps1** para aplicar a migração 007. Lançar ou importar os valores atuais do Power BI e o registro de riscos. Próximas etapas: demais páginas (Segurança M365, Disponibilidade & Rede etc.) e coleta direta e agendada por API (Zabbix, UniFi, Microsoft Graph, NinjaOne) em modo leitura. |
 
 Esse estado é uma base funcional para testes, não comprovação de aceite de produção. Funcionalidade implementada e teste sintético aprovado não substituem conferência da rede, dos dados físicos ou das regras da operação.
 
@@ -487,6 +510,7 @@ Guias específicos incluídos: [Relatórios](RELATORIOS.md), [Centros de custo S
 | 20/10/2026 | **Escopo por centro de custo** (união com requisitantes, filhos por `CCSTCOD`, limites 300 CCs / 5.000 linhas, auditoria, tela) | `CentrosCusto.php`, `Web.php`, `app.php`, `Minerion.php`, `PatrimoniosSga.php`, `DocumentosCompra.php`, consultas SQL |
 | 20/10/2026 | Verificação geral: novos testes `verificar-centros-custo` e `verificar-ponta-a-ponta`; correção de `bin/coletar.php` e do caminho fixo do Python | `bin/`, `Mapas.php` |
 | 20/10/2026 09:20 | Verificação no navegador e sincronização do escopo 768: 196 compras, 3 ativos associados, 12 ambíguos, 9 sem número (seção 11.4) | — |
+| 20/10/2026 15:00 | **Indicadores de TI · Visão Executiva** (base no Power BI *SGM \| Dashboard de TI* e no padrão do Access Gate): 10 cartões com meta, parque/compras do escopo, gráficos SVG (disponibilidade diária, controles, riscos, parque), riscos altos, Modo TV e atualização automática. Tela **Dados dos indicadores**: lançamento, CSV tudo-ou-nada (medições e riscos), metas (admin), remoção auditada. Migração 007. Testes: `verificar-indicadores` (portátil) e ponta a ponta com 88 verificações | `007_indicadores_ti.sql`, `IndicadoresTi.php`, `GraficoSvg.php`, `Web.php`, `app.php`, `indicadores*.php`, `indicadores.css/js`, `INDICADORES-TI.md`, testes |
 | 20/10/2026 14:00 | **PDF no timbrado oficial** (`MODELO - TIMBRADO.docx`): sai a faixa verde com o logotipo em placa branca; entram o logotipo direto sobre o fundo branco, a faixa amarela lateral com razão social e CNPJ em texto vertical e o rodapé com linha verde, marcadores e endereços (Nossa Senhora do Livramento/MT e Cuiabá/MT) e listras diagonais. Faixa, linha e listras em vetor. `Pdf.php` ganhou polígono preenchido e texto vertical. Testes atualizados; ponta a ponta com 69 verificações | `Pdf.php`, `RelatorioPdf.php`, `Assets/pin-endereco-pdf.png`, `gerar-logo-pdf.py`, `RELATORIOS.md`, testes |
 | 20/10/2026 11:15 | **Relatório em PDF** com o **logotipo oficial** (placa branca na faixa verde, como na interface), A4 paisagem, cartões, tabelas paginadas com cabeçalho repetido e rodapé "Página X de Y". Gerado em PHP puro, sem bibliotecas. Teste portátil `verificar-relatorio-pdf`; ponta a ponta com 69 a 72 verificações | `Pdf.php`, `RelatorioPdf.php`, `Assets/`, `gerar-logo-pdf.py`, `Web.php`, `relatorios.php`, testes |
 | 20/10/2026 10:50 | **Relatórios** por centro de custo e período: seleção múltipla, CCs novos conferidos no SGA (todos antes de alterar), inclusão no escopo e sincronização antes do relatório, resumo sem dupla contagem, mensal, detalhe e CSV. Consulta SQL validada no SGA. Ponta a ponta com 68 a 70 verificações | `Relatorios.php`, `relatorios.php`, `Web.php`, `app.php`, `Parque.php`, `RELATORIOS.md`, testes |

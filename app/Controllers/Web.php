@@ -15,6 +15,7 @@ use App\Services\Periodo;
 use App\Services\Parque;
 use App\Services\Mapas;
 use App\Services\PatrimoniosSga;
+use App\Services\IndicadoresTi;
 use RuntimeException;
 final class Web {
     public static function run(): void {
@@ -42,9 +43,10 @@ final class Web {
                 if(!$can) throw new RuntimeException('Seu perfil permite apenas consulta.');
                 self::action($path,$u); return;
             }
-            $periodo=Periodo::ler(in_array($path,['/','/projetos','/projeto','/projeto-exportar','/relatorios','/relatorio-exportar','/relatorio-pdf'],true)?$_GET:[]);
+            // Indicadores: padrão "Últimos 30 dias" quando nenhum período foi escolhido.
+            $periodo=Periodo::ler(in_array($path,['/','/projetos','/projeto','/projeto-exportar','/relatorios','/relatorio-exportar','/relatorio-pdf'],true)?$_GET:($path==='/indicadores'?$_GET+['periodo'=>'30dias']:[]));
             $escopoTodos=($_GET['escopo']??'')==='todos'; // padrão: somente o escopo atual (requisitantes/CC configurados)
-            $params=['escopoTodos'=>$escopoTodos,'periodo'=>$periodo,'u'=>$u,'can'=>$can,'path'=>$path,'title'=>match($path){'/'=>'Parque e custos','/mapas'=>'Mapas e áreas','/mapa'=>'Mapa e apontamentos','/projetos'=>'Projetos e custos','/projeto'=>'Painel do projeto','/compras'=>'Compras do Minerion','/ativos'=>'Patrimônios','/estoque'=>'Estoque de materiais','/cadastros'=>'Cadastros','/integracao'=>'Integração SGA','/historico'=>'Movimentações e auditoria','/conta'=>'Minha conta','/relatorios'=>'Relatórios de gastos',default=>'Visão geral'}];
+            $params=['escopoTodos'=>$escopoTodos,'periodo'=>$periodo,'u'=>$u,'can'=>$can,'path'=>$path,'title'=>match($path){'/'=>'Parque e custos','/mapas'=>'Mapas e áreas','/mapa'=>'Mapa e apontamentos','/projetos'=>'Projetos e custos','/projeto'=>'Painel do projeto','/compras'=>'Compras do Minerion','/ativos'=>'Patrimônios','/estoque'=>'Estoque de materiais','/cadastros'=>'Cadastros','/integracao'=>'Integração SGA','/historico'=>'Movimentações e auditoria','/conta'=>'Minha conta','/relatorios'=>'Relatórios de gastos','/indicadores'=>'Visão Executiva de TI','/indicadores-dados'=>'Dados dos indicadores',default=>'Visão geral'}];
             if($path==='/mapa-imagem') Mapas::arquivo((int)($_GET['id']??0));
             if($path==='/mapa-original') Mapas::arquivo((int)($_GET['id']??0),true);
             if($path==='/mapa-exportar') Mapas::exportar((int)($_GET['id']??0));
@@ -57,6 +59,23 @@ final class Web {
                 $pdf=RelatorioPdf::gerar(Relatorios::gerar(Relatorios::selecionar($sel),$periodo,RelatorioPdf::LIMITE_LINHAS),$periodo,(string)$u['nome']);
                 header('Content-Type: application/pdf'); header('Content-Disposition: attachment; filename="relatorio-gastos-cc-'.date('Ymd-Hi').'.pdf"'); header('Content-Length: '.strlen($pdf));
                 echo $pdf; return;
+            }
+            if($path==='/indicadores-modelo') {
+                $tipo=(string)($_GET['tipo']??''); $csv=IndicadoresTi::modelo($tipo);
+                header('Content-Type: text/csv; charset=UTF-8'); header('Content-Disposition: attachment; filename="modelo-indicadores-'.$tipo.'.csv"'); echo $csv; return;
+            }
+            if($path==='/indicadores') {
+                // Visão Executiva de TI: página normal, Modo TV (?tv=1) e miolo para atualização automática (?parcial=1).
+                $atualizar=(int)($_GET['atualizar']??IndicadoresTi::ATUALIZACAO_PADRAO); if(!isset(IndicadoresTi::ATUALIZACOES[$atualizar])) $atualizar=IndicadoresTi::ATUALIZACAO_PADRAO;
+                $params+=['ind'=>IndicadoresTi::painel($periodo),'atualizar'=>$atualizar,'modoTv'=>($_GET['tv']??'')==='1'];
+                if(($_GET['parcial']??'')==='1') { header('Cache-Control: no-store'); self::view('indicadores-conteudo',$params); return; }
+                self::view($params['modoTv']?'indicadores-tv':'app',$params); return;
+            }
+            if($path==='/indicadores-dados') {
+                if(!$can) throw new RuntimeException('Seu perfil permite apenas consulta.');
+                $params['pronto']=IndicadoresTi::pronto(); $params['admin']=$u['perfil']==='admin';
+                $params+=$params['pronto']?['catalogo'=>IndicadoresTi::catalogo(),'medicoes'=>IndicadoresTi::ultimasMedicoes(),'riscosLista'=>DB::all('SELECT * FROM riscos_ti ORDER BY FIELD(situacao,\'aberto\',\'em_tratamento\',\'aceito\',\'tratado\'),nivel DESC,codigo')]:['catalogo'=>[],'medicoes'=>[],'riscosLista'=>[]];
+                self::view('app',$params); return;
             }
             if($path==='/integracao' && $u['perfil']!=='admin') throw new RuntimeException('Somente administradores podem configurar a integração.');
             $params['locais']=DB::all('SELECT id,nome FROM locais WHERE ativo=1 ORDER BY nome');
@@ -150,7 +169,7 @@ final class Web {
             self::view('error',['title'=>'Verificação necessária','message'=>$message]);
         }
     }
-    private static function back(string $p): string { return match($p){'/mapa-upload'=>'/mapas','/mapa-area','/mapa-vincular','/mapa-desvincular'=>'/mapa?id='.(int)($_POST['mapa_id']??0),'/projeto-salvar'=>'/projetos','/projeto-documento-buscar','/projeto-documento-confirmar'=>'/projeto?id='.(int)($_POST['projeto_id']??0).'#documento-coleta','/projeto-apontar','/projeto-desvincular'=>(($_POST['voltar_compras']??'')==='1'?'/compras':'/projeto?id='.(int)($_POST['projeto_id']??0)),'/triagem','/incorporar'=>'/compras','/mover-ativo','/patrimonio-conferir','/patrimonio-associar'=>'/ativos','/mover-material'=>'/estoque','/cadastro'=>'/cadastros','/sga-salvar','/sga-sincronizar','/sga-requisitante','/sga-requisitante-remover','/sga-centro-custo','/sga-centro-custo-remover'=>'/integracao','/relatorio-gerar'=>'/relatorios','/senha'=>'/conta',default=>'/'}; }
+    private static function back(string $p): string { return match($p){'/mapa-upload'=>'/mapas','/mapa-area','/mapa-vincular','/mapa-desvincular'=>'/mapa?id='.(int)($_POST['mapa_id']??0),'/projeto-salvar'=>'/projetos','/projeto-documento-buscar','/projeto-documento-confirmar'=>'/projeto?id='.(int)($_POST['projeto_id']??0).'#documento-coleta','/projeto-apontar','/projeto-desvincular'=>(($_POST['voltar_compras']??'')==='1'?'/compras':'/projeto?id='.(int)($_POST['projeto_id']??0)),'/triagem','/incorporar'=>'/compras','/mover-ativo','/patrimonio-conferir','/patrimonio-associar'=>'/ativos','/mover-material'=>'/estoque','/cadastro'=>'/cadastros','/sga-salvar','/sga-sincronizar','/sga-requisitante','/sga-requisitante-remover','/sga-centro-custo','/sga-centro-custo-remover'=>'/integracao','/relatorio-gerar'=>'/relatorios','/indicador-medicao','/indicador-medicao-remover','/indicador-meta','/indicador-risco','/indicadores-importar'=>'/indicadores-dados','/senha'=>'/conta',default=>'/'}; }
     private static function login(): never {
         $email=strtolower(trim((string)($_POST['email']??''))); $key=hash('sha256',$email.'|'.($_SERVER['REMOTE_ADDR']??''));
         $t=DB::one('SELECT * FROM login_tentativas WHERE chave=?',[$key]);
@@ -250,6 +269,18 @@ final class Web {
                 Periodo::ler($q);
                 $_SESSION['success']=$msg!==''?$msg:'Relatório gerado com os dados já importados.';
                 url('/relatorios?'.http_build_query($q));
+            case '/indicador-medicao': IndicadoresTi::lancar($_POST,$actor); $_SESSION['success']='Medição lançada.'; url('/indicadores-dados');
+            case '/indicador-medicao-remover': IndicadoresTi::remover((int)($_POST['id']??0),$actor); $_SESSION['success']='Medição removida (registrada na auditoria).'; url('/indicadores-dados');
+            case '/indicador-meta':
+                if($u['perfil']!=='admin') throw new RuntimeException('Somente administradores alteram metas.');
+                IndicadoresTi::salvarMeta($_POST,$actor); $_SESSION['success']='Meta atualizada.'; url('/indicadores-dados');
+            case '/indicador-risco': DB::transaction(fn()=>IndicadoresTi::salvarRisco($_POST,$actor)); $_SESSION['success']='Risco salvo.'; url('/indicadores-dados');
+            case '/indicadores-importar':
+                $f=$_FILES['arquivo']??[];
+                if(($f['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK || !is_uploaded_file((string)($f['tmp_name']??''))) throw new RuntimeException('Envie um arquivo CSV pelo formulário.');
+                if(!preg_match('/\.csv$/i',(string)($f['name']??'')) || (int)($f['size']??0)>IndicadoresTi::LIMITE_CSV_BYTES) throw new RuntimeException('Envie um arquivo .csv de até 2 MB.');
+                $tipo=(string)($_POST['tipo']??''); $n=IndicadoresTi::importar($tipo,(string)file_get_contents((string)$f['tmp_name']),$actor);
+                $_SESSION['success']=$n.' linha(s) importada(s) ('.($tipo==='riscos'?'riscos':'medições').').'; url('/indicadores-dados');
             case '/sga-salvar':
                 if($u['perfil']!=='admin') throw new RuntimeException('Permissão insuficiente.');
                 Integracao::salvar($_POST); DB::audit('integracao','sga','configurar',null,['servidor'=>$_POST['servidor'],'banco'=>$_POST['banco']],$actor); break;

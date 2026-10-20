@@ -115,6 +115,38 @@ try {
     $r=$http('POST','/relatorio-gerar',['csrf'=>$csrf,'periodo'=>'ano']); $check($r['status']===303 && str_starts_with($r['headers']['location']??'','/relatorios?periodo=ano'),'Geração do relatório sem sincronizar falhou.');
     $check(str_starts_with($flash('/relatorios'),'success'),'Aviso da geração do relatório ausente.');
     $http('POST','/relatorio-gerar',['csrf'=>$csrf,'novos'=>'abc']); $check(str_contains($flash('/relatorios'),'error'),'Código inválido aceito na geração do relatório.');
+    // 5b. Visão Executiva de TI: painel, Modo TV, miolo parcial, lançamento, CSV (tudo ou nada), metas e riscos.
+    $multipart=static function(string $path,array $campos,string $arquivo,string $nomeArq) use(&$cookie,$base): array {
+        $b='----e2e'.bin2hex(random_bytes(6)); $c='';
+        foreach($campos as $k=>$v) $c.="--$b\r\nContent-Disposition: form-data; name=\"$k\"\r\n\r\n$v\r\n";
+        $c.="--$b\r\nContent-Disposition: form-data; name=\"arquivo\"; filename=\"$nomeArq\"\r\nContent-Type: text/csv\r\n\r\n$arquivo\r\n--$b--\r\n";
+        $body=(string)file_get_contents($base.$path,false,stream_context_create(['http'=>['method'=>'POST','ignore_errors'=>true,'follow_location'=>0,'header'=>"Cookie: $cookie\r\nContent-Type: multipart/form-data; boundary=$b\r\n",'content'=>$c]]));
+        $headers=function_exists('http_get_last_response_headers')?(http_get_last_response_headers()??[]):($http_response_header??[]);
+        preg_match('~HTTP/\S+\s+(\d{3})~',$headers[0]??'',$m); return ['status'=>(int)($m[1]??0),'body'=>$body];
+    };
+    $r=$http('GET','/indicadores'); $check($r['status']===200 && $noErrors($r['body']) && str_contains($r['body'],'Visão Executiva de TI') && str_contains($r['body'],'Disponibilidade da rede') && str_contains($r['body'],'Últimos 30 dias') && str_contains($r['body'],'/assets/indicadores.js'),'Visão Executiva não abriu.');
+    $check(!preg_match('/\sstyle="/',$r['body']),'Visão Executiva com atributo style (bloqueado pela CSP).');
+    $r=$http('GET','/indicadores?tv=1'); $check($r['status']===200 && str_contains($r['body'],'tv-relogio') && !str_contains($r['body'],'class="sidebar"'),'Modo TV inválido.');
+    $r=$http('GET','/indicadores?parcial=1&periodo=7dias'); $check($r['status']===200 && !str_contains($r['body'],'<html') && str_contains($r['body'],'ind-kpis'),'Miolo parcial inválido.');
+    $r=$http('GET','/indicadores-dados'); $check($r['status']===200 && $noErrors($r['body']) && str_contains($r['body'],'Lançar medição'),'Dados dos indicadores não abriu.'); $token($r['body']);
+    $ontem=date('Y-m-d',strtotime('-1 day'));
+    $http('POST','/indicador-medicao',['csrf'=>$csrf,'codigo'=>'disponibilidade_rede','data'=>$ontem,'valor'=>'99,8','observacao'=>'E2E']);
+    $check(str_starts_with($flash('/indicadores-dados'),'success'),'Lançamento manual falhou.');
+    $http('POST','/indicador-medicao',['csrf'=>$csrf,'codigo'=>'cobertura_mfa','data'=>$ontem,'valor'=>'120']); $check(str_contains($flash('/indicadores-dados'),'entre 0 e 100'),'Percentual acima de 100 aceito.');
+    $http('POST','/indicador-medicao',['csrf'=>$csrf,'codigo'=>'cobertura_mfa','data'=>date('Y-m-d',strtotime('+2 days')),'valor'=>'90']); $check(str_contains($flash('/indicadores-dados'),'futura'),'Data futura aceita.');
+    $r=$multipart('/indicadores-importar',['csrf'=>$csrf,'tipo'=>'medicoes'],"codigo;data;valor\nlinks_internet;$ontem;97,5\nindicador_x;$ontem;1\n",'m.csv');
+    $check($r['status']===303 && str_contains($flash('/indicadores-dados'),'Nada foi importado') && (int)DB::one("SELECT COUNT(*) n FROM indicadores_ti_medicoes m JOIN indicadores_ti i ON i.id=m.indicador_id WHERE i.codigo='links_internet'")['n']===0,'CSV com erro importou parcialmente.');
+    $multipart('/indicadores-importar',['csrf'=>$csrf,'tipo'=>'medicoes'],"\xEF\xBB\xBFcodigo;data;valor;observacao\nlinks_internet;".date('d/m/Y',strtotime('-1 day')).";97,5;csv\nproblemas_criticos;$ontem;2;\ncontroles_status_implementado;$ontem;10;\ncontroles_status_avaliar;$ontem;30;\n",'m.csv');
+    $check(str_contains($flash('/indicadores-dados'),'4 linha(s) importada(s)'),'Importação de medições falhou.');
+    $multipart('/indicadores-importar',['csrf'=>$csrf,'tipo'=>'riscos'],"codigo;risco;nivel;classificacao;responsavel;situacao\nR-E2E;Risco <b>sintético</b> E2E;16;Alto;TI;aberto\nR-E2F;Risco tratado E2E;20;;TI;tratado\n",'r.csv');
+    $check(str_contains($flash('/indicadores-dados'),'2 linha(s)') && DB::one("SELECT classificacao FROM riscos_ti WHERE codigo='R-E2F'")['classificacao']==='Crítico','Importação de riscos falhou.');
+    $http('POST','/indicador-meta',['csrf'=>$csrf,'codigo'=>'problemas_criticos','operador'=>'<=','meta'=>'2']); $check(str_starts_with($flash('/indicadores-dados'),'success'),'Meta não foi salva pelo administrador.');
+    $r=$http('GET','/indicadores?periodo=7dias');
+    $check(str_contains($r['body'],'99,80%') && str_contains($r['body'],'97,50%') && preg_match('/kpi-ok[^>]*>\s*<p class="kpi-rotulo">Problemas críticos/',$r['body'])===1,'Cartões não refletem lançamentos e meta.');
+    $check(str_contains($r['body'],'Risco &lt;b&gt;sintético&lt;/b&gt; E2E') && !str_contains($r['body'],'Risco tratado E2E') && str_contains($r['body'],'class="viz-ponto') && str_contains($r['body'],'viz-fatia'),'Riscos ou gráficos ausentes no painel.');
+    $r=$http('GET','/indicadores-modelo?tipo=riscos'); $check(str_starts_with($r['body'],"\xEF\xBB\xBFcodigo;risco;nivel") && str_contains($r['headers']['content-type']??'','text/csv'),'Modelo CSV inválido.');
+    $med=(int)DB::one("SELECT m.id FROM indicadores_ti_medicoes m JOIN indicadores_ti i ON i.id=m.indicador_id WHERE i.codigo='problemas_criticos'")['id'];
+    $http('POST','/indicador-medicao-remover',['csrf'=>$csrf,'id'=>(string)$med]); $check(!DB::one('SELECT id FROM indicadores_ti_medicoes WHERE id=?',[$med]) && DB::one("SELECT id FROM auditoria WHERE entidade='indicadores_ti_medicoes' AND acao='remover'"),'Remoção de medição sem auditoria.');
     $r=$http('GET','/rota-inexistente'); $check($r['status']===404,'Rota inexistente não retornou 404.');
 
     // 6. Ações com CSRF: cadastro, projeto, rateio com limite de 100%, triagem.
@@ -170,11 +202,14 @@ try {
     $http('POST','/sga-centro-custo',['csrf'=>$csrf,'centro_custo_id'=>'1290']); $check(str_contains($flash('/'),'apenas consulta'),'Consulta alterou escopo de CC.');
     $r=$http('GET','/relatorios'); $check($r['status']===200 && !str_contains($r['body'],'name="novos"') && str_contains($r['body'],'action="/relatorios"'),'Consulta viu opções de inclusão/sincronização no relatório.');
     $http('POST','/relatorio-gerar',['csrf'=>$csrf,'novos'=>'1290','sincronizar'=>'1']); $check(str_contains($flash('/'),'apenas consulta'),'Consulta conseguiu sincronizar pelo relatório.');
+    $r=$http('GET','/indicadores'); $check($r['status']===200 && str_contains($r['body'],'Visão Executiva de TI') && !str_contains($r['body'],'href="/indicadores-dados" ') && !str_contains($r['body'],'>Dados dos indicadores</a>'),'Consulta não vê a Visão Executiva ou vê o acesso aos dados.');
+    $r=$http('GET','/indicadores-dados'); $check(str_contains($r['body'],'apenas consulta'),'Consulta abriu Dados dos indicadores.');
+    $http('POST','/indicador-medicao',['csrf'=>$csrf,'codigo'=>'cobertura_mfa','data'=>date('Y-m-d'),'valor'=>'50']); $check(str_contains($flash('/'),'apenas consulta'),'Consulta lançou medição.');
 
     // 9. Log do servidor sem avisos do PHP.
     usleep(200000); $server_log=(string)@file_get_contents($log);
     $check(!preg_match('/PHP (Warning|Notice|Deprecated|Fatal)/',$server_log),"Avisos do PHP no servidor:\n".implode("\n",array_slice(preg_grep('/PHP (Warning|Notice|Deprecated|Fatal)/',explode("\n",$server_log)),0,5)));
-    echo "OK: ponta a ponta — $ok verificações: migrações, saúde, cabeçalhos, CSRF, login, ".count($paginas)." telas, escopo atual × histórico (ativos, compras, painel, bens sem número), filtro por origem (Compras e Painel), totais de compras com e sem patrimônio, relatórios por CC (tela, período, CSV, PDF no timbrado oficial, geração, permissões), 404, XSS, cadastro+auditoria, projeto, rateio 60% e bloqueio >100%, custo 1800.60, triagem, CSV/BOM/fórmula, Project XML, mapas ($mapas), perfil consulta e log do PHP limpo. Banco temporário descartado.\n";
+    echo "OK: ponta a ponta — $ok verificações: migrações, saúde, cabeçalhos, CSRF, login, ".count($paginas)." telas, escopo atual × histórico (ativos, compras, painel, bens sem número), filtro por origem (Compras e Painel), totais de compras com e sem patrimônio, relatórios por CC (tela, período, CSV, PDF no timbrado oficial, geração, permissões), Visão Executiva de TI (painel, Modo TV, miolo parcial, lançamento, CSV tudo-ou-nada, riscos, metas, remoção auditada, permissões), 404, XSS, cadastro+auditoria, projeto, rateio 60% e bloqueio >100%, custo 1800.60, triagem, CSV/BOM/fórmula, Project XML, mapas ($mapas), perfil consulta e log do PHP limpo. Banco temporário descartado.\n";
 } catch(Throwable $e) {
     $exit=1; fwrite(STDERR,'FALHOU: '.$e->getMessage().PHP_EOL);
 } finally {

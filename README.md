@@ -62,6 +62,8 @@ Veja [Requisitantes SGA](REQUISITANTES-SGA.md) para adicionar IDs pela interface
 
 Veja [Relatórios](RELATORIOS.md) para gastos por centro de custo e período (seleção múltipla, CCs novos com sincronização e CSV).
 
+Veja [Indicadores de TI](INDICADORES-TI.md) para a Visão Executiva de TI (cartões com meta, gráficos, riscos, Modo TV e atualização automática).
+
 Veja [Centros de custo SGA](CENTROS-CUSTO-SGA.md) para incluir centros de custo do SGA (com ou sem filhos) no escopo da consulta.
 
 Verificação rápida sem dados internos: `php bin/verificar-publicacao.php`, `php bin/verificar-requisitantes.php`, `php bin/verificar-centros-custo.php` e `php bin/verificar-relatorio-pdf.php`. Com o MariaDB da instalação ativo: `php bin/verificar-ponta-a-ponta.php`.
