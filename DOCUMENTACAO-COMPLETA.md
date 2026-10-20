@@ -1,6 +1,6 @@
 # Salinas TI — documentação completa e estado atual
 
-**Revisão da documentação:** 20/10/2026, 09:10 (Horário de Mato Grosso – UTC-4). Inclui requisitantes e centros de custo configuráveis e a verificação geral da aplicação (seção 11.3). Histórico na seção 15.
+**Revisão da documentação:** 20/10/2026, 09:25 (Horário de Mato Grosso – UTC-4). Inclui requisitantes e centros de custo configuráveis, telas filtradas pelo escopo atual (seção 6.5) e a verificação geral (seção 11.3). Histórico na seção 15.
 
 **Referência do levantamento:** 19/10/2026, 23:18:58, horário de Cuiabá (UTC−04:00). Os totais operacionais abaixo são uma fotografia dessa consulta e mudam com o uso.
 
@@ -164,6 +164,8 @@ Registros de imobilizado são conciliados com as compras e com a empresa do patr
 Uma nova coleta preserva as decisões e situações físicas locais. O custo do bem prioriza o valor de aquisição do imobilizado; quando não existe, usa estimativa unitária pelo pedido/quantidade, identificada na tela. Ausência de custo não é silenciosamente tratada como um custo conhecido igual a zero.
 
 ### 6.5 Parque e custos
+
+**Escopo atual × histórico (20/10/2026, 09:25).** O painel (`/`), **Patrimônios** (`/ativos`), **Compras** (`/compras`) e as pendências de associação mostram por padrão **somente** o escopo atual da consulta. Isso inclui as compras dos requisitantes e centros de custo configurados em Integração, de **qualquer categoria** (não só TI). Para ver também o que foi importado de requisitantes ou CCs removidos, escolha **Todo o histórico importado** no filtro (`?escopo=todos`). Bens sem compra de origem sempre aparecem. Projetos e rateios não são filtrados pelo escopo, porque o vínculo é explícito. O histórico nunca é apagado.
 
 O painel separa alocados em uso, estoque/manutenção/baixados, baixados fora do total principal e aguardando conferência. O total principal do parque exclui baixados e inclui os bens conhecidos aguardando conferência, com essa cobertura explícita.
 
@@ -340,7 +342,7 @@ Executada num ambiente de análise isolado (PHP 8.3, MariaDB 10.11, Python 3.13 
 | `verificar-publicacao` | OK |
 | `verificar-requisitantes` | OK |
 | `verificar-centros-custo` (novo) | OK |
-| `verificar-ponta-a-ponta` (novo, HTTP) | **48 verificações OK**: saúde, cabeçalhos CSP/nosniff, CSRF, login e bloqueio de senha errada, 14 telas, 404, escape de HTML, cadastro com auditoria, projeto, rateio 60% e bloqueio acima de 100%, custo truncado (R$ 1.800,60), triagem, CSV com BOM e proteção contra fórmula, Project XML, mapas (upload GeoTIFF, prévia PNG, área, polígono cruzado recusado, vínculo e GeoJSON), perfil consulta sem escrita e log do PHP sem avisos |
+| `verificar-ponta-a-ponta` (novo, HTTP) | **53 verificações OK** (incluindo escopo atual × histórico em ativos, compras e painel, também com o escopo só no 768): saúde, cabeçalhos CSP/nosniff, CSRF, login e bloqueio de senha errada, 14 telas, 404, escape de HTML, cadastro com auditoria, projeto, rateio 60% e bloqueio acima de 100%, custo truncado (R$ 1.800,60), triagem, CSV com BOM e proteção contra fórmula, Project XML, mapas (upload GeoTIFF, prévia PNG, área, polígono cruzado recusado, vínculo e GeoJSON), perfil consulta sem escrita e log do PHP sem avisos |
 | Sincronização com escopo por CC em MariaDB | Ausência marcada só no escopo combinado; coleta por documento preservada; linha fora do escopo recusada |
 | SQL novo no SGA real (Metabase) | Compras e patrimônios executaram; contagens conferidas (ver guia de CC) |
 | Revisão de segurança do código | SQL dinâmico só com listas fechadas ou parâmetros; uploads com extensão, tamanho e assinatura validados; saídas HTML escapadas; erros de banco não expostos |
@@ -370,6 +372,7 @@ Executada num ambiente de análise isolado (PHP 8.3, MariaDB 10.11, Python 3.13 
 | Backup | Definir retenção, proteção, agendamento e ensaiar restauração do banco e imagens. |
 | Testes distribuídos | As evidências privadas das 8 suítes completas não estão na instalação atual. Recuperar de um backup ou gerar dataset sintético e trocar os totais fixos por totais calculados. `verificar-ponta-a-ponta` já cobre o fluxo principal sem evidências. |
 | Escopo por CC | Validar na interface com a VPN: incluir 1241, sincronizar e conferir as 110 linhas extras. Definir os CCs oficiais da TI. |
+| Sincronização com SSL | Em 20/10 a ponte SQL Server falhou com "cadeia de certificação não confiável" e a conexão foi salva **sem SSL**. Para homologar: reativar SSL e marcar "Confiar no certificado" (teste) ou instalar a CA do servidor SQL (produção). |
 
 Esse estado é uma base funcional para testes, não comprovação de aceite de produção. Funcionalidade implementada e teste sintético aprovado não substituem conferência da rede, dos dados físicos ou das regras da operação.
 
@@ -402,3 +405,4 @@ Guias específicos incluídos: [Mapas e áreas](MAPAS-E-AREAS.md), [Project XML]
 | 20/10/2026 | Revisão: sincronização valida os patrimônios filtrados antes de importar; escopo lido uma vez por importação | `Integracao.php` |
 | 20/10/2026 | **Escopo por centro de custo** (união com requisitantes, filhos por `CCSTCOD`, limites 300 CCs / 5.000 linhas, auditoria, tela) | `CentrosCusto.php`, `Web.php`, `app.php`, `Minerion.php`, `PatrimoniosSga.php`, `DocumentosCompra.php`, consultas SQL |
 | 20/10/2026 | Verificação geral: novos testes `verificar-centros-custo` e `verificar-ponta-a-ponta`; correção de `bin/coletar.php` e do caminho fixo do Python | `bin/`, `Mapas.php` |
+| 20/10/2026 09:25 | **Telas pelo escopo atual**: painel, ativos, compras e pendências mostram só o escopo configurado (qualquer categoria), com opção "Todo o histórico importado". Sincronização não aborta mais quando o escopo não tem bens no imobilizado. Teste ponta a ponta com 53 verificações, usando o escopo real da instalação | `Parque.php`, `CentrosCusto.php`, `Integracao.php`, `Web.php`, `app.php`, `ativos.php`, `parque.php`, `verificar-ponta-a-ponta.php` |

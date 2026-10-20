@@ -41,7 +41,8 @@ final class Web {
                 self::action($path,$u); return;
             }
             $periodo=Periodo::ler(in_array($path,['/','/projetos','/projeto','/projeto-exportar'],true)?$_GET:[]);
-            $params=['periodo'=>$periodo,'u'=>$u,'can'=>$can,'path'=>$path,'title'=>match($path){'/'=>'Parque e custos','/mapas'=>'Mapas e áreas','/mapa'=>'Mapa e apontamentos','/projetos'=>'Projetos e custos','/projeto'=>'Painel do projeto','/compras'=>'Compras do Minerion','/ativos'=>'Patrimônios','/estoque'=>'Estoque de materiais','/cadastros'=>'Cadastros','/integracao'=>'Integração SGA','/historico'=>'Movimentações e auditoria','/conta'=>'Minha conta',default=>'Visão geral'}];
+            $escopoTodos=($_GET['escopo']??'')==='todos'; // padrão: somente o escopo atual (requisitantes/CC configurados)
+            $params=['escopoTodos'=>$escopoTodos,'periodo'=>$periodo,'u'=>$u,'can'=>$can,'path'=>$path,'title'=>match($path){'/'=>'Parque e custos','/mapas'=>'Mapas e áreas','/mapa'=>'Mapa e apontamentos','/projetos'=>'Projetos e custos','/projeto'=>'Painel do projeto','/compras'=>'Compras do Minerion','/ativos'=>'Patrimônios','/estoque'=>'Estoque de materiais','/cadastros'=>'Cadastros','/integracao'=>'Integração SGA','/historico'=>'Movimentações e auditoria','/conta'=>'Minha conta',default=>'Visão geral'}];
             if($path==='/mapa-imagem') Mapas::arquivo((int)($_GET['id']??0));
             if($path==='/mapa-original') Mapas::arquivo((int)($_GET['id']??0),true);
             if($path==='/mapa-exportar') Mapas::exportar((int)($_GET['id']??0));
@@ -83,6 +84,7 @@ final class Web {
                     if($filter==='faturadas') $where.=' AND c.vinculos_nf_positivos>0';
                     if($filter==='pendentes') $where.=" AND c.triagem='pendente' AND c.vinculos_nf_positivos>0";
                     if($filter==='incluidas') $where.=" AND c.triagem='incluir'";
+                    if(!$escopoTodos) { [$scopeSql,$scopeArgs]=CentrosCusto::condicaoLocal('c.requisitante_codigo','c.centro_custo_compra_id'); $where.=' AND '.$scopeSql; $p=[...$p,...$scopeArgs]; }
                     $base=' FROM compras_origem c JOIN produtos p ON p.id=c.produto_id JOIN requisitantes_sga r ON r.codigo=c.requisitante_codigo LEFT JOIN centros_custo cc ON cc.id=c.centro_custo_compra_id';
                     $total=(int)DB::one('SELECT COUNT(*) n'.$base.$where,$p)['n']; $page=max(1,min((int)($_GET['pagina']??1),max(1,(int)ceil($total/40))));
                     $params+=['q'=>$q,'filter'=>$filter,'total'=>$total,'page'=>$page,'rows'=>DB::all('SELECT c.*,p.nome produto,p.controle,p.unidade,p.categoria,r.nome requisitante,cc.nome cc_nome'.$base.$where.' ORDER BY c.processo_data DESC,c.id DESC LIMIT 40 OFFSET '.(($page-1)*40),$p)];
@@ -94,10 +96,11 @@ final class Web {
                 case '/ativos':
                     $q=mb_substr(trim((string)($_GET['q']??'')),0,120); $estado=(string)($_GET['situacao']??'');
                     $params['qAtivos']=$q; $params['estadoAtivos']=$estado;
-                    $params['rows']=Parque::itens($q,$estado);
+                    $params['rows']=Parque::itens($q,$estado,!$escopoTodos);
                     $params['sgaPorAtivo']=[];
                     foreach(DB::all('SELECT * FROM patrimonios_sga ORDER BY atualizado_em DESC,id DESC') as $sga) if($sga['ativo_id']&&!isset($params['sgaPorAtivo'][$sga['ativo_id']])) $params['sgaPorAtivo'][$sga['ativo_id']]=$sga;
                     $params['pendenciasSga']=DB::all("SELECT * FROM patrimonios_sga WHERE situacao IN ('ambiguo','conflito') ORDER BY id DESC");
+                    if(!$escopoTodos) $params['pendenciasSga']=array_values(array_filter($params['pendenciasSga'],static fn(array $s):bool=>CentrosCusto::patrimonioNoEscopo(json_decode((string)$s['payload_json'],true)?:[])));
                     $params['resumoSga']=DB::one("SELECT COUNT(*) registros,COALESCE(SUM(situacao='sem_numero'),0) sem_numero,COALESCE(SUM(situacao='associado'),0) associados FROM patrimonios_sga");
                     break;
                 case '/estoque':
@@ -109,7 +112,7 @@ final class Web {
                     $params['audit']=DB::all('SELECT a.*,u.nome autor FROM auditoria a LEFT JOIN usuarios u ON u.id=a.autor_id ORDER BY a.id DESC LIMIT 100'); break;
                 case '/conta': break;
                 case '/':
-                    $params+=Parque::painel($periodo);
+                    $params+=Parque::painel($periodo,!$escopoTodos);
                     $params['last']=DB::one('SELECT * FROM sincronizacoes ORDER BY id DESC LIMIT 1'); break;
                 default: http_response_code(404); throw new RuntimeException('Página não encontrada.');
             }
@@ -210,7 +213,7 @@ final class Web {
             case '/sga-sincronizar':
                 if($u['perfil']!=='admin') throw new RuntimeException('Permissão insuficiente.');
                 set_time_limit(180); $sync=Integracao::sincronizar($actor); $n=$sync['compras'];
-                $_SESSION['success']="$n compras sincronizadas. Patrimônios: ".$sync['patrimonios']['associado']." associados; ".$sync['patrimonios']['ambiguo']." ambíguos; ".$sync['patrimonios']['sem_numero']." sem número."; url('/integracao');
+                $_SESSION['success']="$n compras sincronizadas. Patrimônios: ".$sync['patrimonios']['associado']." associados; ".$sync['patrimonios']['ambiguo']." ambíguos; ".$sync['patrimonios']['sem_numero']." sem número.".($sync['aviso']??''); url('/integracao');
             case '/senha':
                 $pw=(string)($_POST['nova_senha']??''); $old=DB::one('SELECT senha_hash FROM usuarios WHERE id=?',[$actor]);
                 if(!password_verify((string)($_POST['senha_atual']??''),$old['senha_hash'])) throw new RuntimeException('Senha atual incorreta.');

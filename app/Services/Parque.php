@@ -4,12 +4,13 @@ namespace App\Services;
 use App\Core\Database as DB;
 use RuntimeException;
 final class Parque {
-    public static function itens(string $q='',string $state=''): array {
+    public static function itens(string $q='',string $state='',bool $somenteEscopo=true): array {
         if(!in_array($state,['','alocado','em_estoque','manutencao','baixado','aguardando_conferencia','fora_uso'],true)) throw new RuntimeException('Selecione uma situação válida.');
         $where=' WHERE 1=1';$args=[];
         if($q!=='') { $where.=' AND (a.patrimonio LIKE ? OR p.nome LIKE ? OR CAST(c.origem_item_id AS CHAR)=?)';$args=["%$q%","%$q%",$q]; }
         if($state==='fora_uso') $where.=" AND a.situacao IN ('em_estoque','manutencao','baixado')";
         elseif($state!=='') { $where.=' AND a.situacao=?';$args[]=$state; }
+        if($somenteEscopo) { [$scopeSql,$scopeArgs]=CentrosCusto::condicaoLocal('c.requisitante_codigo','c.centro_custo_compra_id'); $where.=' AND (a.compra_origem_id IS NULL OR '.$scopeSql.')'; $args=[...$args,...$scopeArgs]; } // bens sem compra de origem (cadastro manual) sempre aparecem
         $rows=DB::all('SELECT a.*,p.nome produto,l.nome local_nome,cc.nome cc_nome,r.nome responsavel,c.origem_item_id,c.processo_data,c.quantidade_solicitada,c.base_pedido,s.payload_json imobilizado_json,s.situacao vinculo_sga,s.origem_presente origem_sga FROM ativos a JOIN produtos p ON p.id=a.produto_id LEFT JOIN locais l ON l.id=a.local_atual_id LEFT JOIN centros_custo cc ON cc.id=a.centro_custo_atual_id LEFT JOIN responsaveis r ON r.id=a.responsavel_atual_id LEFT JOIN vw_compras_custos c ON c.id=a.compra_origem_id LEFT JOIN patrimonios_sga s ON s.id=(SELECT s2.id FROM patrimonios_sga s2 WHERE s2.ativo_id=a.id ORDER BY s2.atualizado_em DESC,s2.id DESC LIMIT 1)'.$where.' ORDER BY a.id DESC',$args);
         foreach($rows as &$row) {
             $payload=$row['imobilizado_json']?json_decode($row['imobilizado_json'],true):[];
@@ -24,8 +25,8 @@ final class Parque {
         }
         unset($row);return $rows;
     }
-    public static function painel(Periodo $periodo): array {
-        $all=self::itens();
+    public static function painel(Periodo $periodo,bool $somenteEscopo=true): array {
+        $all=self::itens('','',$somenteEscopo);
         $stats=['parque'=>'0.00','parque_n'=>0,'uso'=>'0.00','uso_n'=>0,'fora'=>'0.00','fora_n'=>0,'baixado'=>'0.00','baixado_n'=>0,'pendente'=>'0.00','pendente_n'=>0,'sem_custo'=>0,'estimados'=>0,'alertas'=>0];
         $categories=[];$periodValue='0.00';$periodCount=0;
         foreach($all as $a) {

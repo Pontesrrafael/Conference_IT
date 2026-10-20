@@ -107,6 +107,23 @@ final class CentrosCusto {
             return $after;
         } finally { flock($lock,LOCK_UN); fclose($lock); }
     }
+    /**
+     * Condição SQL local (MariaDB) para "dentro do escopo atual". Colunas vêm do código, nunca da interface.
+     * @return array{0:string,1:list<int>}
+     */
+    public static function condicaoLocal(string $colRequisitante,string $colCentroCustoLocal): array {
+        foreach([$colRequisitante,$colCentroCustoLocal] as $col) if(!preg_match('/^[a-z_][a-z0-9_.]*$/D',$col)) throw new RuntimeException('Coluna de escopo inválida.');
+        $req=Requisitantes::lista(); $cc=self::lista();
+        $sql='('.$colRequisitante.' IN ('.implode(',',array_fill(0,count($req),'?')).')';
+        if($cc) $sql.=' OR '.$colCentroCustoLocal.' IN (SELECT id FROM centros_custo WHERE sga_codigo IN ('.implode(',',array_fill(0,count($cc),'?')).'))';
+        return [$sql.')',[...$req,...$cc]];
+    }
+    /** Registro de patrimônio (payload SGA) ligado ao escopo atual por requisitante ou CC candidato. */
+    public static function patrimonioNoEscopo(array $payload): bool {
+        $reqs=array_map('intval',$payload['requisitantes_candidatos']??[$payload['requisitante_id']??0]);
+        $ccs=array_map('intval',$payload['centros_candidatos']??[$payload['centro_custo_compra_id']??0]);
+        return (bool)array_intersect($reqs,Requisitantes::lista()) || (bool)array_intersect($ccs,self::lista());
+    }
     /** Linha dentro do escopo combinado: requisitante configurado OU CC efetivo. */
     public static function noEscopo(int $requisitante,int $centro,?array $requisitantes=null,?array $centros=null): bool {
         return in_array($requisitante,$requisitantes??Requisitantes::lista(),true) || ($centro>0 && in_array($centro,$centros??self::lista(),true));

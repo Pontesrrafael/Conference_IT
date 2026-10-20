@@ -57,9 +57,11 @@ final class Integracao {
         // Ler ambas as origens antes de alterar a carga local.
         CentrosCusto::atualizarExpansao(static fn(string $sql)=>self::executarSql($sql)); // novos CCs filhos passam a valer
         $compras=self::consultar(); $patrimonios=self::consultar('patrimonios');
-        // O resultado normalizado (já filtrado pelos requisitantes atuais) decide; a lista bruta pode ter itens fora do escopo.
-        if(!PatrimoniosSga::normalizar($patrimonios)) throw new RuntimeException('Nenhum patrimônio retornou para os requisitantes atuais; sincronização não iniciada e dados anteriores preservados.');
+        // O resultado normalizado (já filtrado pelo escopo atual) decide; a lista bruta pode ter itens fora do escopo.
+        // Escopo sem bens no imobilizado (ex.: só material de consumo) é legítimo: importa as compras e preserva o levantamento patrimonial anterior, sem marcar ausências.
+        $semPatrimonios=!PatrimoniosSga::normalizar($patrimonios);
         $n=self::importar($compras,'sga',$actor);
+        if($semPatrimonios) return ['compras'=>$n,'patrimonios'=>['associado'=>0,'ambiguo'=>0,'sem_numero'=>0,'conflito'=>0],'aviso'=>' Nenhum bem do imobilizado retornou para o escopo atual; o levantamento patrimonial anterior foi preservado.'];
         try { $stats=PatrimoniosSga::importar($patrimonios,'sga',$actor); }
         catch(\Throwable $e) { throw new RuntimeException('Compras atualizadas; associação patrimonial não concluída. O levantamento anterior foi preservado.',0,$e); }
         return ['compras'=>$n,'patrimonios'=>$stats];

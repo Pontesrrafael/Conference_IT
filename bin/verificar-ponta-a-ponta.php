@@ -12,6 +12,7 @@ if(PHP_SAPI!=='cli') exit(1);
 require dirname(__DIR__).'/app/bootstrap.php';
 use App\Core\Database as DB;
 use App\Services\Integracao;
+use App\Services\Requisitantes;
 $nome='salinas_ti_e2e_'.bin2hex(random_bytes(5));
 $root=json_decode((string)file_get_contents(ROOT.'/storage/maria-admin.json'),true,512,JSON_THROW_ON_ERROR);
 $admin=new PDO('mysql:host=127.0.0.1;port=3308;charset=utf8mb4','root',$root['senha'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
@@ -34,12 +35,21 @@ try {
     // 2. Usuários e dados sintéticos (nenhum dado da empresa).
     $pwAdmin='E2e-'.bin2hex(random_bytes(8)); $pwConsulta='E2e-'.bin2hex(random_bytes(8));
     DB::run("INSERT INTO usuarios(nome,email,senha_hash,perfil) VALUES('Admin E2E','admin@e2e.local',?,'admin'),('Consulta E2E','consulta@e2e.local',?,'consulta')",[password_hash($pwAdmin,PASSWORD_BCRYPT),password_hash($pwConsulta,PASSWORD_BCRYPT)]);
+    // Usa o escopo real da instalação (storage/requisitantes.json): o teste funciona com qualquer lista configurada.
+    $reqEscopo=Requisitantes::lista()[0]; $reqFora=2147483000;
     $rows=[];
     foreach([[910001,'=CMD|calc','Notebook sintético'],[910002,'<script>alert(1)</script>','Switch sintético'],[910003,'Cabo sintético','Cabo sintético']] as $i=>[$id,$prod,$alt]) {
-        $rows[]=['origem_item_id'=>$id,'processo_id'=>880000+$i,'empresa_id'=>1,'filial_id'=>1,'requisitante_id'=>756,'requisitante_nome'=>'Requisitante sintético','produto_id'=>770000+$i,'produto_nome'=>$prod,'centro_custo_compra_id'=>990000+$i,'centro_custo_compra_nome'=>'CC sintético '.$i,'processo_data'=>'2026-10-0'.($i+1).'T10:00:00','cancelado_em'=>null,'quantidade_solicitada'=>'2.0000','quantidade_faturada_cadastro'=>'2.0000','quantidade_cancelada'=>'0.0000','quantidade_vinculada_nf'=>'2.0000','valor_unitario_pedido'=>'1500.5000','valor_total_pedido'=>'3001.0000','vinculos_nf_positivos'=>1];
+        $rows[]=['origem_item_id'=>$id,'processo_id'=>880000+$i,'empresa_id'=>1,'filial_id'=>1,'requisitante_id'=>$reqEscopo,'requisitante_nome'=>'Requisitante sintético','produto_id'=>770000+$i,'produto_nome'=>$prod,'centro_custo_compra_id'=>990000+$i,'centro_custo_compra_nome'=>'CC sintético '.$i,'processo_data'=>'2026-10-0'.($i+1).'T10:00:00','cancelado_em'=>null,'quantidade_solicitada'=>'2.0000','quantidade_faturada_cadastro'=>'2.0000','quantidade_cancelada'=>'0.0000','quantidade_vinculada_nf'=>'2.0000','valor_unitario_pedido'=>'1500.5000','valor_total_pedido'=>'3001.0000','vinculos_nf_positivos'=>1];
     }
     $check(Integracao::importar($rows,'evidencia',null)===3,'Importação sintética falhou.');
-    $compras=array_column(DB::all('SELECT id FROM compras_origem ORDER BY origem_item_id'),'id');
+    // Linha de requisitante fora do escopo (ex.: removido da consulta), entrada por documento: histórico preservado.
+    $fora=$rows[2]; $fora['origem_item_id']=910009; $fora['requisitante_id']=$reqFora; $fora['produto_id']=770009; $fora['produto_nome']='Item fora do escopo E2E';
+    Integracao::importar([$fora],'sga_documento',null,false);
+    $compras=array_column(DB::all('SELECT id FROM compras_origem WHERE origem_item_id<910009 ORDER BY origem_item_id'),'id');
+    $compraFora=(int)DB::one('SELECT id FROM compras_origem WHERE origem_item_id=910009')['id'];
+    // Bens aguardando conferência: um do escopo (material não TI) e um fora do escopo.
+    DB::run("INSERT INTO ativos(produto_id,compra_origem_id,patrimonio,situacao) SELECT produto_id,id,'E2E-DENTRO','aguardando_conferencia' FROM compras_origem WHERE id=?",[$compras[2]]);
+    DB::run("INSERT INTO ativos(produto_id,compra_origem_id,patrimonio,situacao) SELECT produto_id,id,'E2E-FORA','aguardando_conferencia' FROM compras_origem WHERE id=?",[$compraFora]);
 
     // 3. Servidor PHP embutido em porta livre apontando para o banco temporário.
     $sock=stream_socket_server('tcp://127.0.0.1:0'); $port=(int)substr(strrchr(stream_socket_get_name($sock,false),':'),1); fclose($sock);
@@ -75,6 +85,11 @@ try {
     foreach($paginas as $p) { $r=$http('GET',$p); $check($r['status']===200 && $noErrors($r['body']),"Tela $p falhou (HTTP {$r['status']})."); $token($r['body']); }
     $r=$http('GET','/integracao'); $check(str_contains($r['body'],'centros de custo SGA') && str_contains($r['body'],'requisitantes SGA'),'Painéis de escopo ausentes na Integração.');
     $r=$http('GET','/compras?filtro=todas'); $check(str_contains($r['body'],'&lt;script&gt;') && !str_contains($r['body'],'<script>alert'),'Escape de HTML falhou (XSS).');
+    $r=$http('GET','/ativos'); $check(str_contains($r['body'],'E2E-DENTRO') && !str_contains($r['body'],'E2E-FORA'),'Ativos fora do escopo atual exibidos por padrão.');
+    $r=$http('GET','/ativos?escopo=todos'); $check(str_contains($r['body'],'E2E-DENTRO') && str_contains($r['body'],'E2E-FORA'),'Histórico completo de ativos não exibido.');
+    $r=$http('GET','/compras?filtro=todas'); $check(!str_contains($r['body'],'Item fora do escopo E2E'),'Compra fora do escopo exibida por padrão.');
+    $r=$http('GET','/compras?filtro=todas&escopo=todos'); $check(str_contains($r['body'],'Item fora do escopo E2E'),'Histórico completo de compras não exibido.');
+    $r=$http('GET','/'); $check(str_contains($r['body'],'ESCOPO ATUAL DA CONSULTA') && $noErrors($r['body']),'Painel sem indicação de escopo.');
     $r=$http('GET','/rota-inexistente'); $check($r['status']===404,'Rota inexistente não retornou 404.');
 
     // 6. Ações com CSRF: cadastro, projeto, rateio com limite de 100%, triagem.
@@ -132,7 +147,7 @@ try {
     // 9. Log do servidor sem avisos do PHP.
     usleep(200000); $server_log=(string)@file_get_contents($log);
     $check(!preg_match('/PHP (Warning|Notice|Deprecated|Fatal)/',$server_log),"Avisos do PHP no servidor:\n".implode("\n",array_slice(preg_grep('/PHP (Warning|Notice|Deprecated|Fatal)/',explode("\n",$server_log)),0,5)));
-    echo "OK: ponta a ponta — $ok verificações: migrações, saúde, cabeçalhos, CSRF, login, ".count($paginas)." telas, 404, XSS, cadastro+auditoria, projeto, rateio 60% e bloqueio >100%, custo 1800.60, triagem, CSV/BOM/fórmula, Project XML, mapas ($mapas), perfil consulta e log do PHP limpo. Banco temporário descartado.\n";
+    echo "OK: ponta a ponta — $ok verificações: migrações, saúde, cabeçalhos, CSRF, login, ".count($paginas)." telas, escopo atual × histórico (ativos, compras, painel), 404, XSS, cadastro+auditoria, projeto, rateio 60% e bloqueio >100%, custo 1800.60, triagem, CSV/BOM/fórmula, Project XML, mapas ($mapas), perfil consulta e log do PHP limpo. Banco temporário descartado.\n";
 } catch(Throwable $e) {
     $exit=1; fwrite(STDERR,'FALHOU: '.$e->getMessage().PHP_EOL);
 } finally {

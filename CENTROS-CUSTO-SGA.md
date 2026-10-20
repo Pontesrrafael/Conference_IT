@@ -19,7 +19,7 @@ Em **Integração Minerion → Parâmetros da consulta — centros de custo SGA*
 2. Marque **Incluir centros de custo filhos** quando quiser incluir toda a hierarquia abaixo dele. Os filhos são identificados pelo caminho `CENTROCUSTO.CCSTCOD` (ex.: `+47+1290+`).
 3. Clique em **Adicionar centro de custo**. A aplicação confere o CC no SGA, calcula quantos CCs efetivos resultam e quantas linhas de **outros requisitantes** passam a entrar. Depois execute **Consultar SGA e sincronizar agora**.
 
-Use **Remover da consulta** para retirar um CC. O histórico já importado é preservado.
+Use **Remover da consulta** para retirar um CC. O histórico já importado é preservado. As telas Painel, Patrimônios e Compras mostram por padrão só o escopo atual. Para ver o histórico, escolha **Todo o histórico importado**.
 
 ## Proteções
 

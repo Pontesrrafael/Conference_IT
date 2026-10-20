@@ -7,6 +7,7 @@ Depois, use **Consultar SGA e sincronizar agora** para importar os registros do 
 - Apenas administradores podem alterar os parâmetros; o formulário usa CSRF e registra auditoria.
 - Use **Remover da consulta** ao lado de cada ID para excluí-lo das próximas consultas, inclusive os IDs iniciais 756, 772, 316 e 1318. Mantenha ao menos um ID; é possível adicionar novamente um ID removido.
 - A remoção preserva o histórico local, compras e patrimônios importados. Registros fora do escopo não são marcados como ausentes na origem pela próxima sincronização. Não exclui funcionários no Minerion nem usuários de acesso à aplicação.
+- As telas **Painel**, **Patrimônios** e **Compras** mostram por padrão só o escopo atual (requisitantes e centros de custo configurados, de qualquer categoria). O histórico de IDs removidos continua disponível em **Todo o histórico importado**.
 - O limite é de 200 IDs. Duplicados não são adicionados; IDs inexistentes e entradas não numéricas são recusados.
 - A lista fica em `storage/requisitantes.json`, arquivo privado excluído do Git. Inclua-o no backup da instalação.
 - Novos requisitantes são cadastrados na tabela local durante a importação para manter os vínculos das compras.
