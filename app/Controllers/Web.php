@@ -85,15 +85,12 @@ final class Web {
                     if($filter==='pendentes') $where.=" AND c.triagem='pendente' AND c.vinculos_nf_positivos>0";
                     if($filter==='incluidas') $where.=" AND c.triagem='incluir'";
                     if(!$escopoTodos) { [$scopeSql,$scopeArgs]=CentrosCusto::condicaoLocal('c.requisitante_codigo','c.centro_custo_compra_id'); $where.=' AND '.$scopeSql; $p=[...$p,...$scopeArgs]; }
-                    // Origem no escopo: um requisitante ou um centro de custo configurado (com filhos pelo caminho CCSTCOD gravado na coleta).
-                    $origem=(string)($_GET['origem']??''); $ccConfig=CentrosCusto::config()['centros']; $reqNomes=[];
-                    foreach(Requisitantes::lista() as $rid) $reqNomes[$rid]=(DB::one('SELECT nome FROM requisitantes_sga WHERE codigo=?',[$rid])['nome']??'Requisitante');
-                    if(preg_match('/^req:(\d{1,10})$/D',$origem,$m) && isset($reqNomes[(int)$m[1]])) { $where.=' AND c.requisitante_codigo=?'; $p[]=(int)$m[1]; }
-                    elseif(preg_match('/^cc:(\d{1,10})$/D',$origem,$m) && ($sel=array_values(array_filter($ccConfig,static fn($c)=>$c['codigo']===(int)$m[1])))) {
-                        $where.=$sel[0]['incluir_filhos']?" AND (cc.sga_codigo=? OR JSON_UNQUOTE(JSON_EXTRACT(c.payload_json,'$.centro_custo_compra_caminho')) LIKE ?)":' AND cc.sga_codigo=?';
-                        $p[]=(int)$m[1]; if($sel[0]['incluir_filhos']) $p[]='%+'.(int)$m[1].'+%';
-                    } else $origem='';
-                    $params+=['origem'=>$origem,'origemReq'=>$reqNomes,'origemCc'=>$ccConfig,'ccEscopo'=>CentrosCusto::lista()];
+                    // Origem no escopo: um requisitante ou um centro de custo configurado (mesma definição dos totais do Painel).
+                    $origem=(string)($_GET['origem']??''); $origens=CentrosCusto::origens(); $reqNomes=[];
+                    foreach($origens as $o) if($o['tipo']==='Requisitante') $reqNomes[$o['codigo']]=$o['rotulo'];
+                    $sel=array_values(array_filter($origens,static fn($o)=>$o['chave']===$origem));
+                    if($sel) { $where.=' AND '.$sel[0]['sql']; $p=[...$p,...$sel[0]['args']]; } else $origem='';
+                    $params+=['origem'=>$origem,'origemReq'=>$reqNomes,'origemCc'=>CentrosCusto::config()['centros'],'ccEscopo'=>CentrosCusto::lista()];
                     $base=' FROM compras_origem c JOIN produtos p ON p.id=c.produto_id JOIN requisitantes_sga r ON r.codigo=c.requisitante_codigo LEFT JOIN centros_custo cc ON cc.id=c.centro_custo_compra_id';
                     $total=(int)DB::one('SELECT COUNT(*) n'.$base.$where,$p)['n']; $page=max(1,min((int)($_GET['pagina']??1),max(1,(int)ceil($total/40))));
                     $params+=['q'=>$q,'filter'=>$filter,'total'=>$total,'page'=>$page,'rows'=>DB::all('SELECT c.*,p.nome produto,p.controle,p.unidade,p.categoria,r.nome requisitante,cc.nome cc_nome,cc.sga_codigo cc_sga'.$base.$where.' ORDER BY c.processo_data DESC,c.id DESC LIMIT 40 OFFSET '.(($page-1)*40),$p)];
@@ -123,7 +120,9 @@ final class Web {
                     $params['audit']=DB::all('SELECT a.*,u.nome autor FROM auditoria a LEFT JOIN usuarios u ON u.id=a.autor_id ORDER BY a.id DESC LIMIT 100'); break;
                 case '/conta': break;
                 case '/':
-                    $params+=Parque::painel($periodo,!$escopoTodos);
+                    $params['origensPainel']=CentrosCusto::origens(); $params['origemPainel']=(string)($_GET['origem']??'');
+                    if(!CentrosCusto::origem($params['origemPainel'])) $params['origemPainel']='';
+                    $params+=Parque::painel($periodo,!$escopoTodos,$params['origemPainel']);
                     $params['last']=DB::one('SELECT * FROM sincronizacoes ORDER BY id DESC LIMIT 1'); break;
                 default: http_response_code(404); throw new RuntimeException('Página não encontrada.');
             }

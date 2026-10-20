@@ -29,6 +29,16 @@ Você pode remover todos os requisitantes e deixar só centros de custo. Nesse c
 
 Em **Compras SGA**, o filtro **Origem no escopo** mostra só um requisitante ou só um centro de custo configurado (com filhos, quando marcado). Cada linha informa **No escopo por:** requisitante, centro de custo ou ambos. Exemplo: com o 768 e o CC 1290, o filtro "1290" mostra as 21 linhas da rede óptica, requisitadas por Rafael Ramos Pontes e Fernando Silva.
 
+## Total do CC no Painel
+
+Em **Parque e custos**, escolha o CC no filtro **Centro de custo / origem** e clique em **Aplicar período**. O bloco **Compras do escopo atual** mostra:
+- o total do pedido;
+- o total com NF;
+- as compras **sem patrimônio**;
+- o valor dos bens sem número.
+
+O custo do parque, no topo, considera só os patrimônios. Para o CC 1290, o total do pedido no SGA é R$ 115.085,10.
+
 ## Por que um CC pode não gerar ativos
 
 As **compras** do CC entram em **Compras SGA** já na sincronização seguinte. Só viram **ativo** em Patrimônios os bens que existem no imobilizado do SGA **com número de patrimônio**. Bens sem número aparecem na lista **Bens do imobilizado sem número de patrimônio**, no fim da tela Patrimônios. Exemplo de 20/10/2026: o CC 1290 trouxe 21 compras e 7 bens no imobilizado, todos sem número.

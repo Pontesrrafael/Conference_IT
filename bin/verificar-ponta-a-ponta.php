@@ -98,6 +98,10 @@ try {
     $r=$http('GET','/compras?filtro=todas&escopo=todos'); $check(str_contains($r['body'],'Item fora do escopo E2E') && str_contains($r['body'],'fora do escopo atual (histórico)'),'Histórico completo de compras não exibido.');
     $r=$http('GET','/compras?filtro=todas&origem='.urlencode($origemEscopo)); $check(str_contains($r['body'],'Cabo sintético') && str_contains($r['body'],'No escopo por:') && $noErrors($r['body']),'Filtro por origem no escopo falhou.');
     $r=$http('GET','/'); $check(str_contains($r['body'],'ESCOPO ATUAL DA CONSULTA') && $noErrors($r['body']),'Painel sem indicação de escopo.');
+    // Compras do escopo no Painel: 3 linhas sintéticas x R$ 3.001,00; só a terceira tem ativo vinculado.
+    $check(str_contains($r['body'],'R$ 9.003,00') && str_contains($r['body'],'R$ 6.002,00') && str_contains($r['body'],'Compras sem patrimônio'),'Totais de compras do escopo incorretos no Painel.');
+    $r=$http('GET','/?origem='.urlencode($origemEscopo)); $check($noErrors($r['body']) && str_contains($r['body'],'R$ 9.003,00') && str_contains($r['body'],'name="origem"'),'Filtro por origem no Painel falhou.');
+    $r=$http('GET','/?origem=cc:999999999'); $check($noErrors($r['body']) && str_contains($r['body'],'R$ 9.003,00'),'Origem inválida não foi ignorada no Painel.');
     $r=$http('GET','/rota-inexistente'); $check($r['status']===404,'Rota inexistente não retornou 404.');
 
     // 6. Ações com CSRF: cadastro, projeto, rateio com limite de 100%, triagem.
@@ -155,7 +159,7 @@ try {
     // 9. Log do servidor sem avisos do PHP.
     usleep(200000); $server_log=(string)@file_get_contents($log);
     $check(!preg_match('/PHP (Warning|Notice|Deprecated|Fatal)/',$server_log),"Avisos do PHP no servidor:\n".implode("\n",array_slice(preg_grep('/PHP (Warning|Notice|Deprecated|Fatal)/',explode("\n",$server_log)),0,5)));
-    echo "OK: ponta a ponta — $ok verificações: migrações, saúde, cabeçalhos, CSRF, login, ".count($paginas)." telas, escopo atual × histórico (ativos, compras, painel, bens sem número), filtro por origem, 404, XSS, cadastro+auditoria, projeto, rateio 60% e bloqueio >100%, custo 1800.60, triagem, CSV/BOM/fórmula, Project XML, mapas ($mapas), perfil consulta e log do PHP limpo. Banco temporário descartado.\n";
+    echo "OK: ponta a ponta — $ok verificações: migrações, saúde, cabeçalhos, CSRF, login, ".count($paginas)." telas, escopo atual × histórico (ativos, compras, painel, bens sem número), filtro por origem (Compras e Painel), totais de compras com e sem patrimônio, 404, XSS, cadastro+auditoria, projeto, rateio 60% e bloqueio >100%, custo 1800.60, triagem, CSV/BOM/fórmula, Project XML, mapas ($mapas), perfil consulta e log do PHP limpo. Banco temporário descartado.\n";
 } catch(Throwable $e) {
     $exit=1; fwrite(STDERR,'FALHOU: '.$e->getMessage().PHP_EOL);
 } finally {

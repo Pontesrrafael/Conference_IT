@@ -26,7 +26,7 @@ $sga=static function(string $sql) use(&$tree,&$lines,&$queries): array {
  if(str_starts_with($sql,'SELECT DISTINCT c.CCCOD')) {
   preg_match('/c\.CCCOD IN \(([\d,]+)\)/',$sql,$m); $ids=array_map('intval',explode(',',$m[1]));
   preg_match_all("/LIKE '%\+(\d+)\+%'/",$sql,$f); $out=[];
-  foreach($tree as $id=>$path) { if(in_array($id,$ids,true)) $out[]=['codigo'=>$id]; else foreach($f[1] as $p) if(str_contains($path,'+'.$p.'+')) $out[]=['codigo'=>$id]; }
+  foreach($tree as $id=>$path) { if(in_array($id,$ids,true)) $out[]=['codigo'=>$id,'caminho'=>$path]; else foreach($f[1] as $p) if(str_contains($path,'+'.$p.'+')) { $out[]=['codigo'=>$id,'caminho'=>$path]; break; } }
   return $out;
  }
  if(str_starts_with($sql,'SELECT COUNT(*) AS n')) { preg_match('/IPCOCC IN \(([\d,]+)\)/',$sql,$m); $n=0; foreach(explode(',',$m[1]) as $id) $n+=$lines[(int)$id]??0; return [['n'=>$n]]; }
@@ -48,6 +48,11 @@ try {
  $r=CC::adicionar('950',false,$sga); $check($r['adicionado'] && $r['bloqueado'] && CC::lista()===[950] && $r['linhas_extras']===10,'Inclusão simples incorreta.');
  $r=CC::adicionar('900',true,$sga); $check(CC::lista()===[900,901,902,950] && $r['efetivos']===4,'Expansão de filhos incorreta.');
  $r=CC::adicionar('900',true,$sga); $check(!$r['adicionado'],'Repetição alterou a configuração.');
+ // Efetivos por entrada: base dos filtros por origem (Painel e Compras).
+ $cfg=array_column(CC::config()['centros'],'efetivos','codigo'); $check($cfg[900]===[900,901,902] && $cfg[950]===[950],'Efetivos por centro de custo incorretos.');
+ $o=CC::origem('cc:900','ccc'); $check($o && $o['sql']==='ccc.sga_codigo IN (?,?,?)' && $o['args']===[900,901,902],'Filtro de origem por CC incorreto.');
+ $check(CC::origem('cc:12345')===null && CC::origem('x')===null,'Origem inexistente aceita.');
+ $check(CC::patrimonioNaOrigem(['centros_candidatos'=>[902]],$o) && !CC::patrimonioNaOrigem(['centros_candidatos'=>[950]],$o),'Patrimônio por origem incorreto.');
  $sql=R::aplicarSql(file_get_contents($source.'/database/queries/minerion_coleta.sql'));
  $check(str_contains($sql,'OR i.IPCOCC IN (900,901,902,950))'),'Consulta de compras sem os CCs.');
  // 4. Limite de volume: CC genérico recusado sem alterar a configuração.
@@ -55,7 +60,7 @@ try {
  $reject(fn()=>CC::adicionar('514',false,$sga),'CC acima do limite de linhas aceito.');
  $check(file_get_contents(ROOT.'/storage/centros-custo.json')===$before,'Recusa alterou a configuração.');
  // 5. Nova filha criada no SGA passa a valer na atualização feita antes da sincronização.
- $tree[903]='+1+900+903+'; CC::atualizarExpansao($sga); $check(in_array(903,CC::lista(),true),'Filho novo não incorporado.');
+ $tree[903]='+1+900+903+'; CC::atualizarExpansao($sga); $check(in_array(903,CC::lista(),true) && in_array(903,CC::origem('cc:900')['efetivos'],true),'Filho novo não incorporado.');
  // 6. Importação: linha de outro requisitante entra pelo CC; CC 0 ou fora do escopo é recusado.
  $row=['requisitante_id'=>123456,'origem_item_id'=>1,'requisitante_nome'=>'Sintético','vinculos_nf_positivos'=>1,'cancelado_em'=>null,'centro_custo_compra_id'=>901];
  $check(isset(Minerion::resumir([$row])[123456]),'Linha do CC recusada.');
@@ -84,7 +89,7 @@ try {
  $check(!CC::remover(900,$sga)['removido'],'Remoção repetida alterou a lista.');
  CC::remover(950,$sga); $check(CC::lista()===[] && str_contains(R::aplicarSql(file_get_contents($source.'/database/queries/minerion_coleta.sql')),'IPCOCC IN (-1)'),'Sentinela não restaurado.');
  foreach($queries as $q) $check(!preg_match('/;|--|\bUPDATE\b|\bDELETE\b|\bINSERT\b/i',$q),'Consulta não somente leitura gerada: '.$q);
- echo "OK: centros de custo — sentinela -1, validação, CC inexistente, inclusão simples/bloqueado, filhos por CCSTCOD, repetição, limite de linhas sem efeito colateral, novo filho na sincronização, importação e patrimônio pelo CC, CC 0 recusado, documentos sem filtro, escopo só por CC (requisitantes vazios, último CC protegido), remoção seletiva e consultas somente leitura. Dados sintéticos isolados.\n";
+ echo "OK: centros de custo — sentinela -1, validação, CC inexistente, inclusão simples/bloqueado, filhos por CCSTCOD, repetição, limite de linhas sem efeito colateral, novo filho na sincronização, efetivos por CC e filtro por origem, importação e patrimônio pelo CC, CC 0 recusado, documentos sem filtro, escopo só por CC (requisitantes vazios, último CC protegido), remoção seletiva e consultas somente leitura. Dados sintéticos isolados.\n";
 } finally {
  foreach(glob($temp.'/storage/*')?:[] as $f) unlink($f);
  foreach(glob($temp.'/database/queries/*')?:[] as $f) unlink($f);
