@@ -101,6 +101,8 @@ final class Web {
                     foreach(DB::all('SELECT * FROM patrimonios_sga ORDER BY atualizado_em DESC,id DESC') as $sga) if($sga['ativo_id']&&!isset($params['sgaPorAtivo'][$sga['ativo_id']])) $params['sgaPorAtivo'][$sga['ativo_id']]=$sga;
                     $params['pendenciasSga']=DB::all("SELECT * FROM patrimonios_sga WHERE situacao IN ('ambiguo','conflito') ORDER BY id DESC");
                     if(!$escopoTodos) $params['pendenciasSga']=array_values(array_filter($params['pendenciasSga'],static fn(array $s):bool=>CentrosCusto::patrimonioNoEscopo(json_decode((string)$s['payload_json'],true)?:[])));
+                    $params['semNumeroSga']=DB::all("SELECT * FROM patrimonios_sga WHERE situacao='sem_numero' ORDER BY id DESC");
+                    if(!$escopoTodos) $params['semNumeroSga']=array_values(array_filter($params['semNumeroSga'],static fn(array $s):bool=>CentrosCusto::patrimonioNoEscopo(json_decode((string)$s['payload_json'],true)?:[])));
                     $params['resumoSga']=DB::one("SELECT COUNT(*) registros,COALESCE(SUM(situacao='sem_numero'),0) sem_numero,COALESCE(SUM(situacao='associado'),0) associados FROM patrimonios_sga");
                     break;
                 case '/estoque':

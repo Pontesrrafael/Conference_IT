@@ -21,6 +21,10 @@ Em **Integração Minerion → Parâmetros da consulta — centros de custo SGA*
 
 Use **Remover da consulta** para retirar um CC. O histórico já importado é preservado. As telas Painel, Patrimônios e Compras mostram por padrão só o escopo atual. Para ver o histórico, escolha **Todo o histórico importado**.
 
+## Por que um CC pode não gerar ativos
+
+As **compras** do CC entram em **Compras SGA** já na sincronização seguinte. Só viram **ativo** em Patrimônios os bens que existem no imobilizado do SGA **com número de patrimônio**. Bens sem número aparecem na lista **Bens do imobilizado sem número de patrimônio**, no fim da tela Patrimônios. Exemplo de 20/10/2026: o CC 1290 trouxe 21 compras e 7 bens no imobilizado, todos sem número.
+
 ## Proteções
 
 | Proteção | Comportamento |

@@ -1,6 +1,6 @@
 # Salinas TI — documentação completa e estado atual
 
-**Revisão da documentação:** 20/10/2026, 09:22 (Horário de Mato Grosso – UTC-4), com verificação no navegador da instalação local (seção 11.4). Inclui requisitantes e centros de custo configuráveis, telas filtradas pelo escopo atual (seção 6.5) e a verificação geral (seção 11.3). Histórico na seção 15.
+**Revisão da documentação:** 20/10/2026, 09:45 (Horário de Mato Grosso – UTC-4), com verificação no navegador da instalação local (seção 11.4). Inclui requisitantes e centros de custo configuráveis, telas filtradas pelo escopo atual (seção 6.5) e a verificação geral (seção 11.3). Histórico na seção 15.
 
 **Referência do levantamento:** 19/10/2026, 23:18:58, horário de Cuiabá (UTC−04:00). Os totais operacionais abaixo são uma fotografia dessa consulta e mudam com o uso.
 
@@ -342,7 +342,7 @@ Executada num ambiente de análise isolado (PHP 8.3, MariaDB 10.11, Python 3.13 
 | `verificar-publicacao` | OK |
 | `verificar-requisitantes` | OK |
 | `verificar-centros-custo` (novo) | OK |
-| `verificar-ponta-a-ponta` (novo, HTTP) | **53 verificações OK** (incluindo escopo atual × histórico em ativos, compras e painel, também com o escopo só no 768): saúde, cabeçalhos CSP/nosniff, CSRF, login e bloqueio de senha errada, 14 telas, 404, escape de HTML, cadastro com auditoria, projeto, rateio 60% e bloqueio acima de 100%, custo truncado (R$ 1.800,60), triagem, CSV com BOM e proteção contra fórmula, Project XML, mapas (upload GeoTIFF, prévia PNG, área, polígono cruzado recusado, vínculo e GeoJSON), perfil consulta sem escrita e log do PHP sem avisos |
+| `verificar-ponta-a-ponta` (novo, HTTP) | **56 verificações OK** (incluindo escopo atual × histórico em ativos, compras, painel e bens sem número; também com o escopo 768 + CC 1290): saúde, cabeçalhos CSP/nosniff, CSRF, login e bloqueio de senha errada, 14 telas, 404, escape de HTML, cadastro com auditoria, projeto, rateio 60% e bloqueio acima de 100%, custo truncado (R$ 1.800,60), triagem, CSV com BOM e proteção contra fórmula, Project XML, mapas (upload GeoTIFF, prévia PNG, área, polígono cruzado recusado, vínculo e GeoJSON), perfil consulta sem escrita e log do PHP sem avisos |
 | Sincronização com escopo por CC em MariaDB | Ausência marcada só no escopo combinado; coleta por documento preservada; linha fora do escopo recusada |
 | SQL novo no SGA real (Metabase) | Compras e patrimônios executaram; contagens conferidas (ver guia de CC) |
 | Revisão de segurança do código | SQL dinâmico só com listas fechadas ou parâmetros; uploads com extensão, tamanho e assinatura validados; saídas HTML escapadas; erros de banco não expostos |
@@ -371,6 +371,12 @@ Rotina adotada: ao fim de cada solicitação, a instalação `http://localhost:2
 
 Os 12 casos ambíguos do 768 aparecem em **Pendências de associação** e precisam ser conferidos e escolhidos manualmente.
 
+**09:38 — escopo 768 + CC 1290 (com filhos).** A sincronização funcionou nas duas execuções (09:36 e 09:39): **217 compras** (196 do 768 + 21 do CC 1290), 71 com NF; patrimônios **3 associados, 12 ambíguos, 16 sem número**. Em Patrimônios continuam 3 ativos porque **os 7 bens do imobilizado ligados ao CC 1290 estão sem número de patrimônio no SGA** (rack 19", cabos ópticos AS120 24FO, DIO 24FO, cordão óptico, cruzeta e fita de aço). Conferido no SGA: `IBAINUMPAT=0` e `IBAINUMPATST` vazio. Por regra, a aplicação não cria ativo sem número.
+
+Ajustes feitos depois dessa verificação:
+- O painel **Atualizar compras** dizia só "Consulta os requisitantes configurados: 768", o que dava a impressão de que o CC fora ignorado. Agora mostra também os CCs.
+- A tela **Patrimônios** ganhou a lista **Bens do imobilizado sem número de patrimônio**, filtrada pelo escopo, com descrição, NF, valor, compra e CC do bem.
+
 ## 12. Pendências e limites de homologação
 
 | Item | Situação atual / próximo passo |
@@ -388,6 +394,7 @@ Os 12 casos ambíguos do 768 aparecem em **Pendências de associação** e preci
 | Backup | Definir retenção, proteção, agendamento e ensaiar restauração do banco e imagens. |
 | Testes distribuídos | As evidências privadas das 8 suítes completas não estão na instalação atual. Recuperar de um backup ou gerar dataset sintético e trocar os totais fixos por totais calculados. `verificar-ponta-a-ponta` já cobre o fluxo principal sem evidências. |
 | Escopo por CC | Validar na interface com a VPN: incluir 1241, sincronizar e conferir as 110 linhas extras. Definir os CCs oficiais da TI. |
+| Bens sem número no SGA | 16 bens do escopo estão no imobilizado sem número de patrimônio (7 do CC 1290, rede óptica). Pedir à Contabilidade/Patrimônio o registro dos números e sincronizar de novo. |
 | Sincronização com SSL | Em 20/10 a ponte SQL Server falhou com "cadeia de certificação não confiável" e a conexão foi salva **sem SSL**. Para homologar: reativar SSL e marcar "Confiar no certificado" (teste) ou instalar a CA do servidor SQL (produção). |
 
 Esse estado é uma base funcional para testes, não comprovação de aceite de produção. Funcionalidade implementada e teste sintético aprovado não substituem conferência da rede, dos dados físicos ou das regras da operação.
@@ -422,4 +429,5 @@ Guias específicos incluídos: [Mapas e áreas](MAPAS-E-AREAS.md), [Project XML]
 | 20/10/2026 | **Escopo por centro de custo** (união com requisitantes, filhos por `CCSTCOD`, limites 300 CCs / 5.000 linhas, auditoria, tela) | `CentrosCusto.php`, `Web.php`, `app.php`, `Minerion.php`, `PatrimoniosSga.php`, `DocumentosCompra.php`, consultas SQL |
 | 20/10/2026 | Verificação geral: novos testes `verificar-centros-custo` e `verificar-ponta-a-ponta`; correção de `bin/coletar.php` e do caminho fixo do Python | `bin/`, `Mapas.php` |
 | 20/10/2026 09:20 | Verificação no navegador e sincronização do escopo 768: 196 compras, 3 ativos associados, 12 ambíguos, 9 sem número (seção 11.4) | — |
+| 20/10/2026 09:45 | CC 1290 sincronizado (217 compras). Painel "Atualizar compras" mostra requisitantes **e** CCs; Patrimônios lista os bens do imobilizado sem número no escopo; teste ponta a ponta com 56 verificações | `app.php`, `ativos.php`, `Web.php`, `verificar-ponta-a-ponta.php` |
 | 20/10/2026 09:25 | **Telas pelo escopo atual**: painel, ativos, compras e pendências mostram só o escopo configurado (qualquer categoria), com opção "Todo o histórico importado". Sincronização não aborta mais quando o escopo não tem bens no imobilizado. Teste ponta a ponta com 53 verificações, usando o escopo real da instalação | `Parque.php`, `CentrosCusto.php`, `Integracao.php`, `Web.php`, `app.php`, `ativos.php`, `parque.php`, `verificar-ponta-a-ponta.php` |

@@ -50,6 +50,8 @@ try {
     // Bens aguardando conferência: um do escopo (material não TI) e um fora do escopo.
     DB::run("INSERT INTO ativos(produto_id,compra_origem_id,patrimonio,situacao) SELECT produto_id,id,'E2E-DENTRO','aguardando_conferencia' FROM compras_origem WHERE id=?",[$compras[2]]);
     DB::run("INSERT INTO ativos(produto_id,compra_origem_id,patrimonio,situacao) SELECT produto_id,id,'E2E-FORA','aguardando_conferencia' FROM compras_origem WHERE id=?",[$compraFora]);
+    // Bens do imobilizado sem número de patrimônio: um no escopo e um fora (não viram ativo, mas devem ser listados).
+    foreach([[7001,'Rack sem número E2E',$reqEscopo],[7002,'Bem sem número fora E2E',$reqFora]] as [$imob,$nomeBem,$reqBem]) DB::run("INSERT INTO patrimonios_sga(imobilizado_item_id,bem_id,empresa_id,nome_bem,candidatos_json,payload_json,situacao,fonte) VALUES(?,?,1,?,'[910003]',?,'sem_numero','evidencia')",[$imob,$imob,$nomeBem,json_encode(['requisitantes_candidatos'=>[$reqBem],'centros_candidatos'=>[],'numero_nota'=>'000123','valor_aquisicao_imobilizado'=>'999.90','descricao_imobilizado'=>$nomeBem.' [NCM:00]','compras_candidatas'=>[910003]])]);
 
     // 3. Servidor PHP embutido em porta livre apontando para o banco temporário.
     $sock=stream_socket_server('tcp://127.0.0.1:0'); $port=(int)substr(strrchr(stream_socket_get_name($sock,false),':'),1); fclose($sock);
@@ -86,7 +88,9 @@ try {
     $r=$http('GET','/integracao'); $check(str_contains($r['body'],'centros de custo SGA') && str_contains($r['body'],'requisitantes SGA'),'Painéis de escopo ausentes na Integração.');
     $r=$http('GET','/compras?filtro=todas'); $check(str_contains($r['body'],'&lt;script&gt;') && !str_contains($r['body'],'<script>alert'),'Escape de HTML falhou (XSS).');
     $r=$http('GET','/ativos'); $check(str_contains($r['body'],'E2E-DENTRO') && !str_contains($r['body'],'E2E-FORA'),'Ativos fora do escopo atual exibidos por padrão.');
-    $r=$http('GET','/ativos?escopo=todos'); $check(str_contains($r['body'],'E2E-DENTRO') && str_contains($r['body'],'E2E-FORA'),'Histórico completo de ativos não exibido.');
+    $r=$http('GET','/ativos'); $check(str_contains($r['body'],'Rack sem número E2E') && !str_contains($r['body'],'Bem sem número fora E2E') && str_contains($r['body'],'R$ 999,90'),'Lista de bens sem número no escopo incorreta.');
+    $r=$http('GET','/integracao'); $check(str_contains($r['body'],'Consulta os requisitantes configurados'),'Resumo do escopo ausente em Atualizar compras.');
+    $r=$http('GET','/ativos?escopo=todos'); $check(str_contains($r['body'],'Bem sem número fora E2E'),'Histórico de bens sem número não exibido.'); $check(str_contains($r['body'],'E2E-DENTRO') && str_contains($r['body'],'E2E-FORA'),'Histórico completo de ativos não exibido.');
     $r=$http('GET','/compras?filtro=todas'); $check(!str_contains($r['body'],'Item fora do escopo E2E'),'Compra fora do escopo exibida por padrão.');
     $r=$http('GET','/compras?filtro=todas&escopo=todos'); $check(str_contains($r['body'],'Item fora do escopo E2E'),'Histórico completo de compras não exibido.');
     $r=$http('GET','/'); $check(str_contains($r['body'],'ESCOPO ATUAL DA CONSULTA') && $noErrors($r['body']),'Painel sem indicação de escopo.');
@@ -147,7 +151,7 @@ try {
     // 9. Log do servidor sem avisos do PHP.
     usleep(200000); $server_log=(string)@file_get_contents($log);
     $check(!preg_match('/PHP (Warning|Notice|Deprecated|Fatal)/',$server_log),"Avisos do PHP no servidor:\n".implode("\n",array_slice(preg_grep('/PHP (Warning|Notice|Deprecated|Fatal)/',explode("\n",$server_log)),0,5)));
-    echo "OK: ponta a ponta — $ok verificações: migrações, saúde, cabeçalhos, CSRF, login, ".count($paginas)." telas, escopo atual × histórico (ativos, compras, painel), 404, XSS, cadastro+auditoria, projeto, rateio 60% e bloqueio >100%, custo 1800.60, triagem, CSV/BOM/fórmula, Project XML, mapas ($mapas), perfil consulta e log do PHP limpo. Banco temporário descartado.\n";
+    echo "OK: ponta a ponta — $ok verificações: migrações, saúde, cabeçalhos, CSRF, login, ".count($paginas)." telas, escopo atual × histórico (ativos, compras, painel, bens sem número), 404, XSS, cadastro+auditoria, projeto, rateio 60% e bloqueio >100%, custo 1800.60, triagem, CSV/BOM/fórmula, Project XML, mapas ($mapas), perfil consulta e log do PHP limpo. Banco temporário descartado.\n";
 } catch(Throwable $e) {
     $exit=1; fwrite(STDERR,'FALHOU: '.$e->getMessage().PHP_EOL);
 } finally {
