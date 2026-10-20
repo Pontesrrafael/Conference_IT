@@ -14,6 +14,7 @@ use App\Services\Requisitantes as R;
 use App\Services\Minerion;
 use App\Services\PatrimoniosSga;
 use App\Services\DocumentosCompra;
+use App\Services\Relatorios;
 $check=static function(bool $ok,string $msg):void{if(!$ok)throw new RuntimeException($msg);};
 $reject=static function(callable $fn,string $msg='Entrada indevida aceita.')use($check):void{$caught=false;try{$fn();}catch(RuntimeException){$caught=true;}$check($caught,$msg);};
 // SGA simulado: árvore 900 > 901 > 902; 950 isolado; 514 genérico com muitas linhas.
@@ -84,12 +85,15 @@ try {
  CC::remover(900,$sga); $reject(fn()=>CC::remover(950,$sga),'Último CC removido com escopo de requisitantes vazio.');
  $check(CC::lista()===[950],'Recusa alterou os centros de custo.');
  R::adicionar(756,fn($q)=>[['codigo'=>756,'nome'=>'Sintético']]); CC::adicionar('900',true,$sga);
+ // 8c. Relatórios: códigos novos digitados (vírgula, ponto e vírgula ou espaço), sem repetição e com limite.
+ $check(Relatorios::codigosNovos(' 1290, 1353;1290  802 ')===[1290,1353,802] && Relatorios::codigosNovos('')===[],'Leitura de códigos novos incorreta.');
+ foreach(['abc','12,-3','1 OR 1=1',implode(',',range(1,21))] as $bad) $reject(fn()=>Relatorios::codigosNovos($bad),'Código de CC inválido aceito no relatório.');
  // 9. Remoção seletiva e retorno ao sentinela.
  $r=CC::remover(900,$sga); $check($r['removido'] && CC::lista()===[950],'Remoção com filhos incorreta.');
  $check(!CC::remover(900,$sga)['removido'],'Remoção repetida alterou a lista.');
  CC::remover(950,$sga); $check(CC::lista()===[] && str_contains(R::aplicarSql(file_get_contents($source.'/database/queries/minerion_coleta.sql')),'IPCOCC IN (-1)'),'Sentinela não restaurado.');
  foreach($queries as $q) $check(!preg_match('/;|--|\bUPDATE\b|\bDELETE\b|\bINSERT\b/i',$q),'Consulta não somente leitura gerada: '.$q);
- echo "OK: centros de custo — sentinela -1, validação, CC inexistente, inclusão simples/bloqueado, filhos por CCSTCOD, repetição, limite de linhas sem efeito colateral, novo filho na sincronização, efetivos por CC e filtro por origem, importação e patrimônio pelo CC, CC 0 recusado, documentos sem filtro, escopo só por CC (requisitantes vazios, último CC protegido), remoção seletiva e consultas somente leitura. Dados sintéticos isolados.\n";
+ echo "OK: centros de custo — sentinela -1, validação, CC inexistente, inclusão simples/bloqueado, filhos por CCSTCOD, repetição, limite de linhas sem efeito colateral, novo filho na sincronização, efetivos por CC e filtro por origem, importação e patrimônio pelo CC, CC 0 recusado, documentos sem filtro, escopo só por CC (requisitantes vazios, último CC protegido), códigos novos do relatório, remoção seletiva e consultas somente leitura. Dados sintéticos isolados.\n";
 } finally {
  foreach(glob($temp.'/storage/*')?:[] as $f) unlink($f);
  foreach(glob($temp.'/database/queries/*')?:[] as $f) unlink($f);

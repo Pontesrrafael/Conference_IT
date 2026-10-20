@@ -102,6 +102,17 @@ try {
     $check(str_contains($r['body'],'R$ 9.003,00') && str_contains($r['body'],'R$ 6.002,00') && str_contains($r['body'],'Compras sem patrimônio'),'Totais de compras do escopo incorretos no Painel.');
     $r=$http('GET','/?origem='.urlencode($origemEscopo)); $check($noErrors($r['body']) && str_contains($r['body'],'R$ 9.003,00') && str_contains($r['body'],'name="origem"'),'Filtro por origem no Painel falhou.');
     $r=$http('GET','/?origem=cc:999999999'); $check($noErrors($r['body']) && str_contains($r['body'],'R$ 9.003,00'),'Origem inválida não foi ignorada no Painel.');
+    // Relatórios por centro de custo: tela, totais (quando o escopo tem CC), CSV e geração sem sincronizar.
+    $r=$http('GET','/relatorios'); $check($r['status']===200 && $noErrors($r['body']) && str_contains($r['body'],'Parâmetros do relatório') && str_contains($r['body'],'name="novos"'),'Tela de relatórios falhou.'); $token($r['body']);
+    $r=$http('GET','/relatorios?periodo=personalizado&data_inicio=2026-10-01&data_fim=2026-10-31'); $check($r['status']===200 && $noErrors($r['body']),'Relatório com período falhou.');
+    $r=$http('GET','/relatorio-exportar'); $check(str_contains($r['headers']['content-type']??'','text/csv') && str_contains($r['body'],'Resumo por centro de custo'),'CSV do relatório inválido.');
+    if($ccEscopo) {
+        $r=$http('GET','/relatorios?cc[]='.$ccEscopo); $check(str_contains($r['body'],'R$ 9.003,00') && str_contains($r['body'],'Cabo sintético'),'Totais do relatório por CC incorretos.');
+        $r=$http('GET','/relatorio-exportar?cc[]='.$ccEscopo); $check(str_contains($r['body'],"'=CMD|calc") && str_contains($r['body'],'9003'),'CSV do relatório sem proteção ou sem totais.');
+    }
+    $r=$http('POST','/relatorio-gerar',['csrf'=>$csrf,'periodo'=>'ano']); $check($r['status']===303 && str_starts_with($r['headers']['location']??'','/relatorios?periodo=ano'),'Geração do relatório sem sincronizar falhou.');
+    $check(str_starts_with($flash('/relatorios'),'success'),'Aviso da geração do relatório ausente.');
+    $http('POST','/relatorio-gerar',['csrf'=>$csrf,'novos'=>'abc']); $check(str_contains($flash('/relatorios'),'error'),'Código inválido aceito na geração do relatório.');
     $r=$http('GET','/rota-inexistente'); $check($r['status']===404,'Rota inexistente não retornou 404.');
 
     // 6. Ações com CSRF: cadastro, projeto, rateio com limite de 100%, triagem.
@@ -155,11 +166,13 @@ try {
     $http('POST','/cadastro',['csrf'=>$csrf,'cadastro'=>'local','nome'=>'Indevido']); $check(str_contains($flash('/cadastros'),'apenas consulta'),'Consulta conseguiu gravar.');
     $check((int)DB::one("SELECT COUNT(*) n FROM locais WHERE nome='Indevido'")['n']===0,'Registro indevido gravado.');
     $http('POST','/sga-centro-custo',['csrf'=>$csrf,'centro_custo_id'=>'1290']); $check(str_contains($flash('/'),'apenas consulta'),'Consulta alterou escopo de CC.');
+    $r=$http('GET','/relatorios'); $check($r['status']===200 && !str_contains($r['body'],'name="novos"') && str_contains($r['body'],'action="/relatorios"'),'Consulta viu opções de inclusão/sincronização no relatório.');
+    $http('POST','/relatorio-gerar',['csrf'=>$csrf,'novos'=>'1290','sincronizar'=>'1']); $check(str_contains($flash('/'),'apenas consulta'),'Consulta conseguiu sincronizar pelo relatório.');
 
     // 9. Log do servidor sem avisos do PHP.
     usleep(200000); $server_log=(string)@file_get_contents($log);
     $check(!preg_match('/PHP (Warning|Notice|Deprecated|Fatal)/',$server_log),"Avisos do PHP no servidor:\n".implode("\n",array_slice(preg_grep('/PHP (Warning|Notice|Deprecated|Fatal)/',explode("\n",$server_log)),0,5)));
-    echo "OK: ponta a ponta — $ok verificações: migrações, saúde, cabeçalhos, CSRF, login, ".count($paginas)." telas, escopo atual × histórico (ativos, compras, painel, bens sem número), filtro por origem (Compras e Painel), totais de compras com e sem patrimônio, 404, XSS, cadastro+auditoria, projeto, rateio 60% e bloqueio >100%, custo 1800.60, triagem, CSV/BOM/fórmula, Project XML, mapas ($mapas), perfil consulta e log do PHP limpo. Banco temporário descartado.\n";
+    echo "OK: ponta a ponta — $ok verificações: migrações, saúde, cabeçalhos, CSRF, login, ".count($paginas)." telas, escopo atual × histórico (ativos, compras, painel, bens sem número), filtro por origem (Compras e Painel), totais de compras com e sem patrimônio, relatórios por CC (tela, período, CSV, geração, permissões), 404, XSS, cadastro+auditoria, projeto, rateio 60% e bloqueio >100%, custo 1800.60, triagem, CSV/BOM/fórmula, Project XML, mapas ($mapas), perfil consulta e log do PHP limpo. Banco temporário descartado.\n";
 } catch(Throwable $e) {
     $exit=1; fwrite(STDERR,'FALHOU: '.$e->getMessage().PHP_EOL);
 } finally {

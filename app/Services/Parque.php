@@ -4,6 +4,8 @@ namespace App\Services;
 use App\Core\Database as DB;
 use RuntimeException;
 final class Parque {
+    /** Agregado das compras (custo pelo pedido, canceladas fora). Mesma regra no Painel e nos Relatórios; completar com a condição. */
+    public const SQL_COMPRAS="SELECT COUNT(*) linhas,COALESCE(SUM(c.vinculos_nf_positivos>0),0) linhas_nf,COALESCE(SUM(c.base_pedido),0) total,COALESCE(SUM(CASE WHEN c.vinculos_nf_positivos>0 THEN c.base_pedido ELSE 0 END),0) total_nf,COALESCE(SUM(CASE WHEN NOT EXISTS(SELECT 1 FROM ativos a WHERE a.compra_origem_id=c.id) THEN c.base_pedido ELSE 0 END),0) sem_patrimonio,COALESCE(SUM(NOT EXISTS(SELECT 1 FROM ativos a WHERE a.compra_origem_id=c.id)),0) sem_patrimonio_n FROM vw_compras_custos c LEFT JOIN centros_custo cc ON cc.id=c.centro_custo_compra_id WHERE c.cancelado_em IS NULL AND ";
     public static function itens(string $q='',string $state='',bool $somenteEscopo=true,?array $origem=null): array {
         if(!in_array($state,['','alocado','em_estoque','manutencao','baixado','aguardando_conferencia','fora_uso'],true)) throw new RuntimeException('Selecione uma situação válida.');
         $where=' WHERE 1=1';$args=[];
@@ -52,7 +54,7 @@ final class Parque {
         // Compras do escopo: custo pelo pedido (vw_compras_custos.base_pedido), canceladas fora; inclui compras sem patrimônio.
         [$scopeSql,$scopeArgs]=$somenteEscopo?CentrosCusto::condicaoLocal('c.requisitante_codigo','c.centro_custo_compra_id'):['1=1',[]];
         [$dateSql,$dateArgs]=$periodo->condicao('c.processo_data');
-        $agg="SELECT COUNT(*) linhas,COALESCE(SUM(c.vinculos_nf_positivos>0),0) linhas_nf,COALESCE(SUM(c.base_pedido),0) total,COALESCE(SUM(CASE WHEN c.vinculos_nf_positivos>0 THEN c.base_pedido ELSE 0 END),0) total_nf,COALESCE(SUM(CASE WHEN NOT EXISTS(SELECT 1 FROM ativos a WHERE a.compra_origem_id=c.id) THEN c.base_pedido ELSE 0 END),0) sem_patrimonio,COALESCE(SUM(NOT EXISTS(SELECT 1 FROM ativos a WHERE a.compra_origem_id=c.id)),0) sem_patrimonio_n FROM vw_compras_custos c LEFT JOIN centros_custo cc ON cc.id=c.centro_custo_compra_id WHERE c.cancelado_em IS NULL AND ";
+        $agg=self::SQL_COMPRAS;
         if($origem) { $scopeSql.=' AND '.$origem['sql']; $scopeArgs=[...$scopeArgs,...$origem['args']]; }
         $comprasEscopo=DB::one($agg.$scopeSql.$dateSql,[...$scopeArgs,...$dateArgs]);
         $porOrigem=[];

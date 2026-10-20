@@ -1,6 +1,6 @@
 # Salinas TI — documentação completa e estado atual
 
-**Revisão da documentação:** 20/10/2026, 10:40 (Horário de Mato Grosso – UTC-4), com verificação no navegador da instalação local (seção 11.4). Inclui requisitantes e centros de custo configuráveis, telas filtradas pelo escopo atual (seção 6.5) e a verificação geral (seção 11.3). Histórico na seção 15.
+**Revisão da documentação:** 20/10/2026, 10:50 (Horário de Mato Grosso – UTC-4), com verificação no navegador da instalação local (seção 11.4). Inclui requisitantes e centros de custo configuráveis, telas filtradas pelo escopo atual (seção 6.5) e a verificação geral (seção 11.3). Histórico na seção 15.
 
 **Referência do levantamento:** 19/10/2026, 23:18:58, horário de Cuiabá (UTC−04:00). Os totais operacionais abaixo são uma fotografia dessa consulta e mudam com o uso.
 
@@ -94,6 +94,7 @@ app/
     DocumentosCompra.php        busca por RC / ordem e apontamento em lote
     Requisitantes.php           escopo de requisitantes (storage/requisitantes.json)
     CentrosCusto.php            escopo por centro de custo, filhos e limites (storage/centros-custo.json)
+    Relatorios.php              relatórios de gastos por CC e período, CCs novos + sincronização
     Periodo.php                 filtros de datas
     Parque.php                  custos e situação do parque
     Mapas.php                   uploads, áreas, vínculos e GeoJSON
@@ -181,6 +182,19 @@ O painel separa alocados em uso, estoque/manutenção/baixados, baixados fora do
 O filtro de datas não altera indevidamente o total global cadastrado do parque. Ele filtra a seção de compras/equipamentos do período e os custos dos projetos pela data do processo SGA. A situação mostrada é a atual; não é uma reconstrução histórica da posição do bem naquela data.
 
 **Custos de parque e custos de projetos podem representar as mesmas aquisições. Não devem ser somados.** Materiais de estoque controlados por quantidade também não são automaticamente somados como equipamentos do parque.
+
+### 6.5.1 Relatórios de gastos por centro de custo
+
+Menu **Relatórios** (`/relatorios`). Mostra gastos por centro de custo e por período, com:
+- seleção múltipla dos CCs adicionados;
+- campo para **informar códigos novos**. Ao gerar, a aplicação confere todos os códigos no SGA, inclui os novos no escopo e **sincroniza com o banco do SGA** antes de montar o relatório;
+- resumo sem dupla contagem;
+- tabela por CC (pedido, com NF, sem patrimônio, patrimônios e bens sem número);
+- evolução mensal;
+- linhas de compra;
+- exportação CSV.
+
+Detalhes, permissões e referência de valores em [Relatórios](RELATORIOS.md).
 
 ### 6.6 Projetos e rateio
 
@@ -270,6 +284,7 @@ Views: `vw_compras_custos` e `vw_apontamentos_custos`. Valores gerenciais usam D
 | `/integracao` | Configuração e sincronização, apenas administrador |
 | `/sga-requisitante`, `/sga-requisitante-remover` | Inclui/remove requisitante do escopo (POST, admin, auditoria) |
 | `/sga-centro-custo`, `/sga-centro-custo-remover` | Inclui/remove centro de custo do escopo (POST, admin, auditoria) |
+| `/relatorios`, `/relatorio-gerar`, `/relatorio-exportar` | Relatório por CC e período; geração com CCs novos e sincronização (POST, admin); CSV |
 | `/conta` | Troca da própria senha |
 | `/saude` | Saúde do acesso ao banco local |
 | `/projeto-exportar`, `/projeto-project` | CSV filtrado e Project XML integral |
@@ -351,7 +366,7 @@ Executada num ambiente de análise isolado (PHP 8.3, MariaDB 10.11, Python 3.13 
 | `verificar-publicacao` | OK |
 | `verificar-requisitantes` | OK |
 | `verificar-centros-custo` (novo) | OK |
-| `verificar-ponta-a-ponta` (novo, HTTP) | **60 verificações OK** em três cenários de escopo: padrão, 768 + CC 1290 e só CC 1290. Inclui escopo atual × histórico em ativos, compras, painel e bens sem número, e o filtro por origem: saúde, cabeçalhos CSP/nosniff, CSRF, login e bloqueio de senha errada, 14 telas, 404, escape de HTML, cadastro com auditoria, projeto, rateio 60% e bloqueio acima de 100%, custo truncado (R$ 1.800,60), triagem, CSV com BOM e proteção contra fórmula, Project XML, mapas (upload GeoTIFF, prévia PNG, área, polígono cruzado recusado, vínculo e GeoJSON), perfil consulta sem escrita e log do PHP sem avisos |
+| `verificar-ponta-a-ponta` (novo, HTTP) | **68 a 70 verificações OK** em três cenários de escopo: padrão, 768 + CC 1290 e só CC 1290. Inclui escopo atual × histórico em ativos, compras, painel e bens sem número, e o filtro por origem: saúde, cabeçalhos CSP/nosniff, CSRF, login e bloqueio de senha errada, 14 telas, 404, escape de HTML, cadastro com auditoria, projeto, rateio 60% e bloqueio acima de 100%, custo truncado (R$ 1.800,60), triagem, CSV com BOM e proteção contra fórmula, Project XML, mapas (upload GeoTIFF, prévia PNG, área, polígono cruzado recusado, vínculo e GeoJSON), perfil consulta sem escrita e log do PHP sem avisos |
 | Sincronização com escopo por CC em MariaDB | Ausência marcada só no escopo combinado; coleta por documento preservada; linha fora do escopo recusada |
 | SQL novo no SGA real (Metabase) | Compras e patrimônios executaram; contagens conferidas (ver guia de CC) |
 | Revisão de segurança do código | SQL dinâmico só com listas fechadas ou parâmetros; uploads com extensão, tamanho e assinatura validados; saídas HTML escapadas; erros de banco não expostos |
@@ -436,7 +451,7 @@ O primeiro envio contém 85 arquivos revisados. A verificação de publicação 
 - [Rasterio — reprojeção](https://rasterio.readthedocs.io/en/stable/topics/reproject.html)
 - [GDAL — GeoTIFF](https://gdal.org/en/stable/drivers/raster/gtiff.html)
 
-Guias específicos incluídos: [Mapas e áreas](MAPAS-E-AREAS.md), [Project XML](EXPORTAR-MICROSOFT-PROJECT.md), [Filtros de datas](FILTROS-DE-DATAS.md), [Projetos](PROJETOS-E-CUSTOS.md), [Parque e custos](PAINEL-PARQUE-CUSTOS.md), [Patrimônios SGA](ATIVOS-SGA.md) e [Identidade visual](IDENTIDADE-VISUAL.md). Em caso de divergência com um guia antigo, conferir primeiro o código atual e este documento consolidado.
+Guias específicos incluídos: [Relatórios](RELATORIOS.md), [Centros de custo SGA](CENTROS-CUSTO-SGA.md), [Requisitantes SGA](REQUISITANTES-SGA.md), [Mapas e áreas](MAPAS-E-AREAS.md), [Project XML](EXPORTAR-MICROSOFT-PROJECT.md), [Filtros de datas](FILTROS-DE-DATAS.md), [Projetos](PROJETOS-E-CUSTOS.md), [Parque e custos](PAINEL-PARQUE-CUSTOS.md), [Patrimônios SGA](ATIVOS-SGA.md) e [Identidade visual](IDENTIDADE-VISUAL.md). Em caso de divergência com um guia antigo, conferir primeiro o código atual e este documento consolidado.
 
 ## 15. Histórico de alterações
 
@@ -448,6 +463,7 @@ Guias específicos incluídos: [Mapas e áreas](MAPAS-E-AREAS.md), [Project XML]
 | 20/10/2026 | **Escopo por centro de custo** (união com requisitantes, filhos por `CCSTCOD`, limites 300 CCs / 5.000 linhas, auditoria, tela) | `CentrosCusto.php`, `Web.php`, `app.php`, `Minerion.php`, `PatrimoniosSga.php`, `DocumentosCompra.php`, consultas SQL |
 | 20/10/2026 | Verificação geral: novos testes `verificar-centros-custo` e `verificar-ponta-a-ponta`; correção de `bin/coletar.php` e do caminho fixo do Python | `bin/`, `Mapas.php` |
 | 20/10/2026 09:20 | Verificação no navegador e sincronização do escopo 768: 196 compras, 3 ativos associados, 12 ambíguos, 9 sem número (seção 11.4) | — |
+| 20/10/2026 10:50 | **Relatórios** por centro de custo e período: seleção múltipla, CCs novos conferidos no SGA (todos antes de alterar), inclusão no escopo e sincronização antes do relatório, resumo sem dupla contagem, mensal, detalhe e CSV. Consulta SQL validada no SGA. Ponta a ponta com 68 a 70 verificações | `Relatorios.php`, `relatorios.php`, `Web.php`, `app.php`, `Parque.php`, `RELATORIOS.md`, testes |
 | 20/10/2026 10:40 | **Painel com compras do escopo** (com e sem patrimônio, com NF, bens sem número, tabela por origem) e **filtro por centro de custo/origem** no Painel; CCs efetivos guardados por entrada; filtros de Compras e Painel usam a mesma definição de origem. Ponta a ponta com 60 verificações nos três cenários de escopo | `Parque.php`, `CentrosCusto.php`, `Web.php`, `parque.php`, `periodo.php`, testes |
 | 20/10/2026 09:55 | **Escopo só por centro de custo**: requisitantes podem ser todos removidos se houver CC (sentinela `-1`); o último item do escopo combinado é protegido. **Compras SGA** ganhou o filtro "Origem no escopo" (por requisitante ou por CC) e a etiqueta "No escopo por" em cada linha. Teste ponta a ponta com 57 verificações nos três cenários (padrão, 768 + CC 1290, só CC 1290) | `Requisitantes.php`, `CentrosCusto.php`, `PatrimoniosSga.php`, `Integracao.php`, `Web.php`, `app.php`, testes |
 | 20/10/2026 09:45 | CC 1290 sincronizado (217 compras). Painel "Atualizar compras" mostra requisitantes **e** CCs; Patrimônios lista os bens do imobilizado sem número no escopo; teste ponta a ponta com 56 verificações | `app.php`, `ativos.php`, `Web.php`, `verificar-ponta-a-ponta.php` |
