@@ -1,6 +1,6 @@
 # Salinas TI — documentação completa e estado atual
 
-**Revisão da documentação:** 20/10/2026, 09:25 (Horário de Mato Grosso – UTC-4). Inclui requisitantes e centros de custo configuráveis, telas filtradas pelo escopo atual (seção 6.5) e a verificação geral (seção 11.3). Histórico na seção 15.
+**Revisão da documentação:** 20/10/2026, 09:22 (Horário de Mato Grosso – UTC-4), com verificação no navegador da instalação local (seção 11.4). Inclui requisitantes e centros de custo configuráveis, telas filtradas pelo escopo atual (seção 6.5) e a verificação geral (seção 11.3). Histórico na seção 15.
 
 **Referência do levantamento:** 19/10/2026, 23:18:58, horário de Cuiabá (UTC−04:00). Os totais operacionais abaixo são uma fotografia dessa consulta e mudam com o uso.
 
@@ -355,6 +355,22 @@ Executada num ambiente de análise isolado (PHP 8.3, MariaDB 10.11, Python 3.13 
 
 **Não executado:** as 8 suítes completas (`verificar-fluxos`, `-projetos`, `-parque`, `-periodos`, `-patrimonios`, `-documentos`, `-mapas`, `-project`). Elas dependem de `evidencias/coleta-minerion.json`, `patrimonios-identificados.json`, `documento-processo-29968.json`, `mspdi_pj12.xsd` e `exemplo-ms-project-teste.xml`, que **não existem na instalação atual**. A pasta `evidencias` local tem apenas os 3 TIFFs sintéticos. Essas suítes também comparam totais fixos (ex.: 1.441 linhas), então só valem com a coleta original.
 
+### 11.4 Verificação no navegador da instalação local (20/10/2026, 09:20)
+
+Rotina adotada: ao fim de cada solicitação, a instalação `http://localhost:2288` é aberta no navegador, a sincronização **Consultar SGA e sincronizar agora** é executada e as telas são conferidas.
+
+| Item | Resultado observado |
+|---|---|
+| Escopo configurado | Requisitante **768** (TULIO SOARES REIS); nenhum centro de custo |
+| Sincronização | Concluída: **196 compras**; patrimônios: **3 associados, 12 ambíguos, 9 sem número** |
+| Patrimônios (`/ativos`), escopo atual | **3 ativos**, todos aguardando conferência, **R$ 5.028,79** (ex.: controlador de videowall, rack outdoor) |
+| Patrimônios, todo o histórico | **70 ativos**, R$ 159.717,89 (67 do escopo anterior + 3 do 768) |
+| Compras (`/compras`, todas), escopo atual × histórico | **196** × **1.638** linhas |
+| Painel (`/`) | Rótulo "ESCOPO ATUAL DA CONSULTA"; R$ 5.028,79; 3 bens não baixados |
+| Conexão SQL Server | Funcionando **sem SSL** (configuração salva às 08:20) |
+
+Os 12 casos ambíguos do 768 aparecem em **Pendências de associação** e precisam ser conferidos e escolhidos manualmente.
+
 ## 12. Pendências e limites de homologação
 
 | Item | Situação atual / próximo passo |
@@ -405,4 +421,5 @@ Guias específicos incluídos: [Mapas e áreas](MAPAS-E-AREAS.md), [Project XML]
 | 20/10/2026 | Revisão: sincronização valida os patrimônios filtrados antes de importar; escopo lido uma vez por importação | `Integracao.php` |
 | 20/10/2026 | **Escopo por centro de custo** (união com requisitantes, filhos por `CCSTCOD`, limites 300 CCs / 5.000 linhas, auditoria, tela) | `CentrosCusto.php`, `Web.php`, `app.php`, `Minerion.php`, `PatrimoniosSga.php`, `DocumentosCompra.php`, consultas SQL |
 | 20/10/2026 | Verificação geral: novos testes `verificar-centros-custo` e `verificar-ponta-a-ponta`; correção de `bin/coletar.php` e do caminho fixo do Python | `bin/`, `Mapas.php` |
+| 20/10/2026 09:20 | Verificação no navegador e sincronização do escopo 768: 196 compras, 3 ativos associados, 12 ambíguos, 9 sem número (seção 11.4) | — |
 | 20/10/2026 09:25 | **Telas pelo escopo atual**: painel, ativos, compras e pendências mostram só o escopo configurado (qualquer categoria), com opção "Todo o histórico importado". Sincronização não aborta mais quando o escopo não tem bens no imobilizado. Teste ponta a ponta com 53 verificações, usando o escopo real da instalação | `Parque.php`, `CentrosCusto.php`, `Integracao.php`, `Web.php`, `app.php`, `ativos.php`, `parque.php`, `verificar-ponta-a-ponta.php` |
