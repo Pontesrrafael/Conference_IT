@@ -11,7 +11,7 @@ $urlTv='/indicadores?'.http_build_query($qs+['tv'=>1]); $urlNormal='/indicadores
 <?php if($modoTv): ?>
 <details class="tv-filtros"><summary>Filtros e atualização</summary>
 <?php else: ?>
-<p class="muted ind-intro">Disponibilidade, segurança, conformidade e ativos — Salinas Gold Mineração. Espelha a página <strong>Visão Executiva</strong> do <em>SGM | Dashboard de TI</em> (Power BI): cartões com meta lançados ou importados em <?=$can?'<a href="/indicadores-dados">Dados dos indicadores</a>':'Dados dos indicadores (administradores e operadores de TI)'?> e parque/compras calculados pela aplicação.</p>
+<p class="muted ind-intro">Disponibilidade, segurança, conformidade e ativos — Salinas Gold Mineração. Espelha a página <strong>Visão Executiva</strong> do <em>SGM | Dashboard de TI</em> (Power BI): cartões com meta lançados ou importados em <?=$can?'<a href="/indicadores-dados">Dados dos indicadores</a>':'Dados dos indicadores (administradores e operadores de TI)'?> e ativos/compras calculados pela aplicação.</p>
 <?php endif; ?>
 <form class="panel date-filter no-print" method="get" action="/indicadores" id="form-indicadores">
   <?php if($modoTv): ?><input type="hidden" name="tv" value="1"><?php endif; ?>

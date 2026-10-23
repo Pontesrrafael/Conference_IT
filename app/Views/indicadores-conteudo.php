@@ -17,7 +17,7 @@ $variacao=static function(array $c): string {
 };
 ?>
 <p class="ind-periodo"><strong><?=e($periodo->rotulo())?></strong> · Atualizado às <?=e(substr($ind['geradoEm'],-8))?> (Horário de Mato Grosso – UTC-4)</p>
-<?php if(!$ind['pronto']): ?><p class="notice error" role="status">Os cartões com meta, controles e riscos precisam da migração <strong>007_indicadores_ti</strong>. Feche e abra a aplicação pelo <strong>iniciar.ps1</strong> (ele aplica as migrações). Enquanto isso, o painel mostra os dados do parque e das compras.</p><?php endif; ?>
+<?php if(!$ind['pronto']): ?><p class="notice error" role="status">Os cartões com meta, controles e riscos precisam da migração <strong>007_indicadores_ti</strong>. Feche e abra a aplicação pelo <strong>iniciar.ps1</strong> (ele aplica as migrações). Enquanto isso, o painel mostra os dados dos ativos e das compras.</p><?php endif; ?>
 
 <?php if($ind['cartoes']): ?>
 <section class="ind-kpis" aria-label="Indicadores com meta">
@@ -34,9 +34,9 @@ $variacao=static function(array $c): string {
 </section>
 <?php endif; ?>
 
-<h2 class="ind-secao">Parque e compras <span class="muted">· escopo atual da consulta SGA</span></h2>
-<section class="ind-kpis ind-kpis-app" aria-label="Parque e compras">
-  <a class="kpi kpi-link" href="/ativos"><p class="kpi-rotulo">Ativos no parque</p><strong class="kpi-valor"><?=$int($st['parque_n'])?></strong><span class="kpi-fonte"><?=$brl($st['parque'])?> · <?=$int($st['uso_n'])?> em uso</span></a>
+<h2 class="ind-secao">Ativos e compras <span class="muted">· escopo atual da consulta SGA</span></h2>
+<section class="ind-kpis ind-kpis-app" aria-label="Ativos e compras">
+  <a class="kpi kpi-link" href="/ativos"><p class="kpi-rotulo">Ativos cadastrados</p><strong class="kpi-valor"><?=$int($st['parque_n'])?></strong><span class="kpi-fonte"><?=$brl($st['parque'])?> · <?=$int($st['uso_n'])?> em uso</span></a>
   <a class="kpi kpi-link<?=$st['pendente_n']>0?' kpi-atencao':''?>" href="/ativos"><p class="kpi-rotulo">Aguardando conferência</p><strong class="kpi-valor"><?=$int($st['pendente_n'])?></strong><span class="kpi-fonte"><?=$brl($st['pendente'])?></span></a>
   <a class="kpi kpi-link<?=$app['ambiguos']>0?' kpi-atencao':''?>" href="/ativos"><p class="kpi-rotulo">Patrimônios ambíguos</p><strong class="kpi-valor"><?=$int($app['ambiguos'])?></strong><span class="kpi-fonte">escolher a associação correta</span></a>
   <a class="kpi kpi-link<?=$app['semNumero']['n']>0?' kpi-atencao':''?>" href="/ativos"><p class="kpi-rotulo">Bens sem número no SGA</p><strong class="kpi-valor"><?=$int($app['semNumero']['n'])?></strong><span class="kpi-fonte"><?=$brl($app['semNumero']['valor'])?> no imobilizado</span></a>
@@ -61,8 +61,8 @@ $variacao=static function(array $c): string {
     <table><thead><tr><th>Risco</th><th>Nível</th><th>Responsável</th></tr></thead><tbody>
     <?php foreach($ind['riscos']['altos'] as $r): ?><tr><td><strong><?=e($r['risco'])?></strong><small><?=e($r['codigo'])?> · <?=e($r['classificacao'])?> · <?=e(IndicadoresTi::SITUACOES_RISCO[$r['situacao']]??$r['situacao'])?></small></td><td><span class="nivel-risco"><?=e($r['nivel'])?></span></td><td><?=e($r['responsavel']?:'—')?></td></tr><?php endforeach; ?>
     </tbody></table><?php endif; ?></section>
-  <section class="panel ind-cartao"><h2>Parque por situação <span class="muted">· compras no período</span></h2>
+  <section class="panel ind-cartao"><h2>Ativos por situação <span class="muted">· compras no período</span></h2>
     <?php $nomesSit=['alocado'=>'Em uso','em_estoque'=>'Em estoque','aguardando_conferencia'=>'Aguardando conferência','manutencao'=>'Manutenção','baixado'=>'Baixado']; $itens=[];
     foreach($nomesSit as $k=>$rot) if(isset($app['porSituacao'][$k])) $itens[]=['rotulo'=>$rot,'valor'=>$app['porSituacao'][$k]['n'],'texto'=>$int($app['porSituacao'][$k]['n']).' · '.$brl($app['porSituacao'][$k]['valor']),'classe'=>'serie-0']; ?>
-    <?=GraficoSvg::barras('Parque por situação',$itens,'Nenhum ativo com compra no período.',560)?></section>
+    <?=GraficoSvg::barras('Ativos por situação',$itens,'Nenhum ativo com compra no período.',560)?></section>
 </div>

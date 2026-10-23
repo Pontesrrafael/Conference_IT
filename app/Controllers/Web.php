@@ -53,7 +53,7 @@ final class Web {
             // Indicadores: padrão "Últimos 30 dias" quando nenhum período foi escolhido.
             $periodo=Periodo::ler(in_array($path,['/','/projetos','/projeto','/projeto-exportar','/relatorios','/relatorio-exportar','/relatorio-pdf'],true)?$_GET:($path==='/indicadores'?$_GET+['periodo'=>'30dias']:[]));
             $escopoTodos=($_GET['escopo']??'')==='todos'; // padrão: somente o escopo atual (requisitantes/CC configurados)
-            $params=['escopoTodos'=>$escopoTodos,'periodo'=>$periodo,'u'=>$u,'can'=>$can,'path'=>$path,'title'=>match($path){'/'=>'Parque e custos','/mapas'=>'Mapas e áreas','/mapa'=>'Mapa e apontamentos','/projetos'=>'Projetos e custos','/projeto'=>'Painel do projeto','/compras'=>'Compras do Minerion','/ativos'=>'Patrimônios','/estoque'=>'Estoque de materiais','/cadastros'=>'Cadastros','/integracao'=>'Integração SGA','/historico'=>'Movimentações e auditoria','/conta'=>'Minha conta','/relatorios'=>'Relatórios de gastos','/indicadores'=>'Visão Executiva de TI','/indicadores-dados'=>'Dados dos indicadores',default=>'Visão geral'}];
+            $params=['escopoTodos'=>$escopoTodos,'periodo'=>$periodo,'u'=>$u,'can'=>$can,'path'=>$path,'title'=>match($path){'/'=>'Ativos e custos','/mapas'=>'Mapas e áreas','/mapa'=>'Mapa e apontamentos','/projetos'=>'Projetos e custos','/projeto'=>'Painel do projeto','/compras'=>'Compras do Minerion','/ativos'=>'Patrimônios','/estoque'=>'Estoque de materiais','/cadastros'=>'Cadastros','/integracao'=>'Integração SGA','/historico'=>'Movimentações e auditoria','/conta'=>'Minha conta','/relatorios'=>'Relatórios de gastos','/indicadores'=>'Visão Executiva de TI','/indicadores-dados'=>'Dados dos indicadores',default=>'Visão geral'}];
             if($path==='/mapa-imagem') Mapas::arquivo((int)($_GET['id']??0));
             if($path==='/mapa-original') Mapas::arquivo((int)($_GET['id']??0),true);
             if($path==='/mapa-exportar') Mapas::exportar((int)($_GET['id']??0));
@@ -168,9 +168,9 @@ final class Web {
                     $params+=Parque::painel($periodo,!$escopoTodos,$params['origemPainel']);
                     $params['last']=DB::one('SELECT * FROM sincronizacoes ORDER BY id DESC LIMIT 1');
                     if(($_GET['tv']??'')==='1') {
-                        // Modo TV do painel Parque e custos: recarrega a página inteira no intervalo escolhido.
+                        // Modo TV do painel Ativos e custos: recarrega a página inteira no intervalo escolhido.
                         $atualizar=(int)($_GET['atualizar']??IndicadoresTi::ATUALIZACAO_PADRAO); if(!isset(IndicadoresTi::ATUALIZACOES[$atualizar])) $atualizar=IndicadoresTi::ATUALIZACAO_PADRAO;
-                        self::view('tv',$params+['modoTv'=>true,'atualizar'=>$atualizar,'tvView'=>'parque-tv','tvTitulo'=>'Parque e custos de TI','tvSubtitulo'=>'Custo do parque, compras do escopo SGA e projetos — Salinas Gold Mineração','tvSair'=>'/?'.http_build_query(array_diff_key($_GET,['tv'=>1,'atualizar'=>1])),'recarregar'=>$atualizar]); return;
+                        self::view('tv',$params+['modoTv'=>true,'atualizar'=>$atualizar,'tvView'=>'parque-tv','tvTitulo'=>'Ativos e custos','tvSubtitulo'=>'Custo dos ativos, compras do escopo SGA e projetos — Salinas Gold Mineração','tvSair'=>'/?'.http_build_query(array_diff_key($_GET,['tv'=>1,'atualizar'=>1])),'recarregar'=>$atualizar]); return;
                     }
                     break;
                 default: http_response_code(404); throw new RuntimeException('Página não encontrada.');
@@ -178,7 +178,7 @@ final class Web {
             self::view('app',$params);
         } catch(\Throwable $e) {
             $message=$e instanceof RuntimeException && !$e instanceof \PDOException ? $e->getMessage() : 'Não foi possível concluir. Confira a configuração ou possíveis dados duplicados.';
-            error_log('Salinas TI: '.get_class($e).' codigo '.$e->getCode());
+            error_log(nome_app().': '.get_class($e).' codigo '.$e->getCode());
             if($_SERVER['REQUEST_METHOD']==='POST') { $_SESSION['error']=$message; url(empty($_SESSION['uid'])?'/login':self::back($path)); }
             self::view('error',['title'=>'Verificação necessária','message'=>$message]);
         }
@@ -344,7 +344,7 @@ final class Web {
         fclose($out);
     }
     private static function export(): void {
-        header('Content-Type: text/csv; charset=UTF-8'); header('Content-Disposition: attachment; filename="patrimonios-salinas-ti.csv"');
+        header('Content-Type: text/csv; charset=UTF-8'); header('Content-Disposition: attachment; filename="patrimonios-salinas.csv"');
         $out=fopen('php://output','w'); fwrite($out,"\xEF\xBB\xBF");
         fputcsv($out,['Empresa','Patrimonio','Produto','Serie','Situacao','Local','Centro de custo','Responsavel'],';');
         $rows=DB::all('SELECT a.empresa_patrimonio,a.patrimonio,p.nome,a.serie,a.situacao,l.nome local,c.nome cc,r.nome responsavel FROM ativos a JOIN produtos p ON p.id=a.produto_id LEFT JOIN locais l ON l.id=a.local_atual_id LEFT JOIN centros_custo c ON c.id=a.centro_custo_atual_id LEFT JOIN responsaveis r ON r.id=a.responsavel_atual_id');

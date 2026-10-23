@@ -16,7 +16,7 @@ try {
         $admin->exec("CREATE USER IF NOT EXISTS 'salinas_ti'@'127.0.0.1' IDENTIFIED BY ".$admin->quote($pass));
         $admin->exec("ALTER USER 'salinas_ti'@'127.0.0.1' IDENTIFIED BY ".$admin->quote($pass));
         $admin->exec("GRANT SELECT,INSERT,UPDATE,DELETE ON salinas_ti.* TO 'salinas_ti'@'127.0.0.1'");
-        $env="APP_NAME=\"Salinas TI\"\nAPP_URL=\"http://localhost:2288\"\nAPP_KEY=$key\nDB_HOST=127.0.0.1\nDB_PORT=3308\nDB_DATABASE=salinas_ti\nDB_USERNAME=salinas_ti\nDB_PASSWORD=$pass\n";
+        $env="APP_NAME=\"Salinas Gestão de Ativos\"\nAPP_URL=\"http://localhost:2288\"\nAPP_KEY=$key\nDB_HOST=127.0.0.1\nDB_PORT=3308\nDB_DATABASE=salinas_ti\nDB_USERNAME=salinas_ti\nDB_PASSWORD=$pass\n";
         if(file_put_contents(ROOT.'/.env',$env,LOCK_EX)===false) throw new RuntimeException('Falha ao gravar ambiente.');
         foreach(parse_ini_string($env,false,INI_SCANNER_RAW) as $k=>$v) putenv($k.'='.$v);
     }
@@ -41,7 +41,7 @@ try {
     if(!(int)DB::one('SELECT COUNT(*) n FROM usuarios')['n']) {
         $pw='SG-'.bin2hex(random_bytes(8)).'!';
         DB::run("INSERT INTO usuarios(nome,email,senha_hash,perfil) VALUES('Administrador TI','admin@salinas.local',?,'admin')",[password_hash($pw,PASSWORD_BCRYPT,['cost'=>12])]);
-        file_put_contents(ROOT.'/ACESSO-LOCAL.txt',"SALINAS TI - TESTE LOCAL\r\n\r\nEndereco: http://localhost:2288\r\nUsuario: admin@salinas.local\r\nSenha inicial: $pw\r\n\r\nTroque a senha em Minha conta apos entrar.\r\nEste arquivo nao acompanha o Git.\r\n");
+        file_put_contents(ROOT.'/ACESSO-LOCAL.txt',"SALINAS GESTAO DE ATIVOS - TESTE LOCAL\r\n\r\nEndereco: http://localhost:2288\r\nUsuario: admin@salinas.local\r\nSenha inicial: $pw\r\n\r\nTroque a senha em Minha conta apos entrar.\r\nEste arquivo nao acompanha o Git.\r\n");
         DB::run("INSERT INTO locais(nome,tipo) VALUES('Estoque TI - conferir local','almoxarifado')");
     }
     if(!(int)DB::one('SELECT COUNT(*) n FROM compras_origem')['n'] && is_file(ROOT.'/evidencias/coleta-minerion.json')) {

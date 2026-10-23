@@ -32,7 +32,7 @@ O conteúdo espelha a página **Visão Executiva** do *SGM | Dashboard de TI* no
 - **Lançamentos:** um por indicador e por dia. Lançar de novo a mesma data substitui o valor e registra a mudança na auditoria.
 
 ## Modo TV e atualização
-- **Modo TV** (`/indicadores?tv=1`): tela sem o menu lateral, para o telão da sala de TI. Usa o layout comum (`Views/tv.php`, `assets/tv.css` e `assets/tv.js`), o mesmo do Modo TV do Parque e custos (`/?tv=1`). Mostra logotipo, título, relógio, seletor de tema (claro, automático ou escuro) e botão de tela cheia. Os filtros ficam recolhidos.
+- **Modo TV** (`/indicadores?tv=1`): tela sem o menu lateral, para o telão da sala de TI. Usa o layout comum (`Views/tv.php`, `assets/tv.css` e `assets/tv.js`), o mesmo do Modo TV de Ativos e custos (`/?tv=1`). Mostra logotipo, título, relógio, seletor de tema (claro, automático ou escuro) e botão de tela cheia. Os filtros ficam recolhidos.
 - **Atualização automática:** desligada, 1, 5 (padrão) ou 15 minutos.
   - Só o conteúdo é recarregado (`?parcial=1`); a página inteira não recarrega.
   - Com a aba em segundo plano, a atualização pausa.

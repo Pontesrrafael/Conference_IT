@@ -4,7 +4,7 @@ $admin=($u['perfil']??'')==='admin';
 $r=$relatorio; $t=$r['total'];
 $qs=http_build_query(['periodo'=>$periodo->opcao,'data_inicio'=>$periodo->opcao==='personalizado'?($periodo->inicio??''):'','data_fim'=>$periodo->opcao==='personalizado'?($periodo->fim??''):'','cc'=>$ccSelecionados]);
 ?>
-<p class="muted">Gastos de compra por centro de custo do SGA (custo pelo pedido, canceladas fora), com ou sem patrimônio. É custo de compra, não pagamento. Os totais do parque, das compras e dos projetos podem representar as mesmas aquisições: não some esses totais.</p>
+<p class="muted">Gastos de compra por centro de custo do SGA (custo pelo pedido, canceladas fora), com ou sem patrimônio. É custo de compra, não pagamento. Os totais dos ativos, das compras e dos projetos podem representar as mesmas aquisições: não some esses totais.</p>
 <section class="panel no-print"><h2>Parâmetros do relatório</h2>
 <form method="<?=$can?'post':'get'?>" action="<?=$can?'/relatorio-gerar':'/relatorios'?>" class="stack"><?php if($can) echo csrf(); ?>
 <fieldset><legend>Centros de custo adicionados (seleção múltipla; nenhum marcado = todos)</legend>

@@ -1,6 +1,6 @@
-# Salinas TI — parque de TI, projetos e áreas
+# Salinas Gestão de Ativos — ativos, compras, projetos e áreas
 
-Aplicação local em **PHP 8.2 e MariaDB**, baseada no padrão do [Salinas Access Gate](https://github.com/Pontesrrafael/salinas-access-gate), para acompanhar o parque de TI, compras do Minerion SGA, custos de projetos e apontamentos sobre mapas GeoTIFF.
+Aplicação local em **PHP 8.2 e MariaDB**, baseada no padrão do [Salinas Access Gate](https://github.com/Pontesrrafael/salinas-access-gate), para acompanhar os ativos de qualquer área (não só TI), compras do Minerion SGA, custos de projetos e apontamentos sobre mapas GeoTIFF.
 
 **Estado:** versão funcional para testes e homologação local. A instalação atual está em `D:\Apps_SG\Est_Sg`, com acesso em **http://localhost:2288** e MariaDB separado na porta **3308**. Ainda não é uma implantação homologada para produção.
 
@@ -64,7 +64,7 @@ Veja [Relatórios](RELATORIOS.md) para gastos por centro de custo e período (se
 
 Veja [Indicadores de TI](INDICADORES-TI.md) para a Visão Executiva de TI (cartões com meta, gráficos, riscos, Modo TV e atualização automática).
 
-Tema claro, automático ou escuro: seletor no topo de todas as telas. Modo TV: botão **Modo TV** no Parque e custos e na Visão Executiva.
+Tema claro, automático ou escuro: seletor no topo de todas as telas. Modo TV: botão **Modo TV** em Ativos e custos e na Visão Executiva.
 
 Troca da senha do usuário do banco: `C:\xampp\php\php.exe bin\definir-senha-db.php` (detalhes na seção 9 da [documentação completa](DOCUMENTACAO-COMPLETA.md)).
 

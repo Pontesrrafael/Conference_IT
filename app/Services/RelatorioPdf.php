@@ -122,7 +122,7 @@ final class RelatorioPdf {
         $p->retangulo($xF,0,self::FAIXA,$H-self::LISTRAS-4,$this->c(self::AMARELO));
         $p->textoVertical($xF+self::FAIXA/2+2.6,($H-self::LISTRAS)/2,self::RAZAO_SOCIAL.'   CNPJ: '.self::CNPJ,7.5,false,$this->c(self::VERDE),1.6);
         // Ressalva de custo e paginação acima da linha verde.
-        $rodape='Salinas TI · Custo de compra pelo pedido no SGA, não é pagamento nem comprovação fiscal. Totais de parque, compras e projetos não devem ser somados.';
+        $rodape=nome_app().' · Custo de compra pelo pedido no SGA, não é pagamento nem comprovação fiscal. Totais de ativos, compras e projetos não devem ser somados.';
         $p->texto(self::M,$H-66,$p->ajustar($rodape,6.5,false,$d-self::M-80),6.5,false,$this->c(self::CINZA_RODAPE));
         $p->texto(0,$H-66,'Página '.$n.' de '.$tot,7,true,$this->c(self::VERDE),'R',$d);
         $p->linha(self::M-8,$H-58,$d+8,$H-58,$this->c(self::VERDE),0.8);

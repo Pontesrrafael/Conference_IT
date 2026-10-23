@@ -31,3 +31,5 @@ function seletor_tema(string $classe = ''): string {
     }
     return $h . '</nav>';
 }
+/** Nome exibido da aplicação (APP_NAME no .env). O antigo padrão "Salinas TI" vira o nome atual, de uso geral. */
+function nome_app(): string { $n = trim((string)getenv('APP_NAME'), " \"'"); return ($n === '' || $n === 'Salinas TI') ? 'Salinas Gestão de Ativos' : $n; }

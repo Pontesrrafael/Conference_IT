@@ -134,7 +134,7 @@ final class Pdf {
             $objs[$cont]='<< /Length '.strlen($data).($zip?' /Filter /FlateDecode':'').' >>'."\nstream\n".$data."\nendstream";
         }
         $info=count($objs)+1;
-        $objs[$info]='<< /Title ('.strtr(self::cp1252($titulo),['\\'=>'\\\\','('=>'\\(',')'=>'\\)']).') /Producer (Salinas TI) /CreationDate (D:'.date('YmdHis').') >>';
+        $objs[$info]='<< /Title ('.strtr(self::cp1252($titulo),['\\'=>'\\\\','('=>'\\(',')'=>'\\)']).') /Producer ('.strtr(self::cp1252(nome_app()),['\\'=>'\\\\','('=>'\\(',')'=>'\\)']).') /CreationDate (D:'.date('YmdHis').') >>';
         $pdf="%PDF-1.4\n%\xE2\xE3\xCF\xD3\n"; $off=[];
         ksort($objs);
         foreach($objs as $k=>$o) { $off[$k]=strlen($pdf); $pdf.=$k." 0 obj\n".$o."\nendobj\n"; }

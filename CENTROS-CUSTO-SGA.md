@@ -31,7 +31,7 @@ Em **Compras SGA**, o filtro **Origem no escopo** mostra só um requisitante ou 
 
 ## Total do CC no Painel
 
-Em **Parque e custos**, escolha o CC no filtro **Centro de custo / origem** e clique em **Aplicar período**. O bloco **Compras do escopo atual** mostra:
+Em **Ativos e custos**, escolha o CC no filtro **Centro de custo / origem** e clique em **Aplicar período**. O bloco **Compras do escopo atual** mostra:
 - o total do pedido;
 - o total com NF;
 - as compras **sem patrimônio**;

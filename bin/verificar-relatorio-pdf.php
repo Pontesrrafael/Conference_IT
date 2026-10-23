@@ -4,6 +4,7 @@ declare(strict_types=1);
 if(PHP_SAPI!=='cli') exit(1);
 define('ROOT',dirname(__DIR__));
 spl_autoload_register(static function(string $c): void { if(str_starts_with($c,'App\\')) require ROOT.'/app/'.str_replace('\\','/',substr($c,4)).'.php'; });
+if(!function_exists('nome_app')) { function nome_app(): string { return 'Salinas Gestão de Ativos'; } }
 use App\Services\{Pdf,RelatorioPdf,Periodo};
 $check=static function(bool $ok,string $msg): void { if(!$ok) throw new RuntimeException($msg); };
 try {

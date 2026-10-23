@@ -1,12 +1,14 @@
-# Salinas TI — documentação completa e estado atual
+# Salinas Gestão de Ativos — documentação completa e estado atual
 
-**Revisão da documentação:** 20/10/2026, 15:45 (Horário de Mato Grosso – UTC-4), com verificação no navegador da instalação local (seção 11.4). Inclui requisitantes e centros de custo configuráveis, telas filtradas pelo escopo atual (seção 6.5) e a verificação geral (seção 11.3). Histórico na seção 15.
+> Antigo **Salinas TI**. Desde 23/10/2026 a aplicação é de uso geral (ativos de qualquer área): as telas não falam mais em "parque de TI". O nome exibido vem de `APP_NAME` no `.env`; o valor antigo "Salinas TI" é mostrado como **Salinas Gestão de Ativos**. Repositório, pasta, banco (`salinas_ti`) e nomes internos do código continuam os mesmos para não quebrar a instalação.
+
+**Revisão da documentação:** 23/10/2026, 14:45 (Horário de Mato Grosso – UTC-4), com verificação no navegador da instalação local (seção 11.4). Inclui requisitantes e centros de custo configuráveis, telas filtradas pelo escopo atual (seção 6.5) e a verificação geral (seção 11.3). Histórico na seção 15.
 
 **Referência do levantamento:** 19/10/2026, 23:18:58, horário de Cuiabá (UTC−04:00). Os totais operacionais abaixo são uma fotografia dessa consulta e mudam com o uso.
 
 ## 1. Objetivo e escopo
 
-Organizar o parque de TI da Salinas Gold, saber quanto custa o parque cadastrado, identificar itens fora de uso e acompanhar o custo das iniciativas e projetos. Os dados de compras são lidos do Minerion SGA; o inventário físico, os rateios e os apontamentos geográficos são mantidos em banco próprio.
+Organizar os ativos da Salinas Gold, de qualquer área, saber quanto custam os ativos cadastrados, identificar itens fora de uso e acompanhar o custo das iniciativas e projetos. Os dados de compras são lidos do Minerion SGA; o inventário físico, os rateios e os apontamentos geográficos são mantidos em banco próprio.
 
 Fora de uso significa **estoque, manutenção ou baixados**. A aplicação não faz descoberta de rede nem monitoramento de comunicação dos equipamentos. Situação aguardando conferência é desconhecida e não é classificada como fora de uso.
 
@@ -170,7 +172,7 @@ Registros de imobilizado são conciliados com as compras e com a empresa do patr
 
 Uma nova coleta preserva as decisões e situações físicas locais. O custo do bem prioriza o valor de aquisição do imobilizado; quando não existe, usa estimativa unitária pelo pedido/quantidade, identificada na tela. Ausência de custo não é silenciosamente tratada como um custo conhecido igual a zero.
 
-### 6.5 Parque e custos
+### 6.5 Ativos e custos (antigo Parque e custos)
 
 **Compras do escopo no Painel (20/10/2026, 10:40).** O Painel ganhou o bloco **Compras do escopo atual**, com:
 - total dos pedidos não cancelados, **com ou sem patrimônio**;
@@ -223,7 +225,7 @@ Nesta etapa, os valores do Zabbix, Microsoft 365, controles, licenças e rádios
   - Sem JavaScript, os links `/tema?valor=…&voltar=…` gravam a escolha e voltam à mesma página. O retorno aceita só caminhos locais, sem redirecionamento aberto.
   - Como funciona no CSS: cada bloco escuro existe em duas versões, `@media(prefers-color-scheme:dark){:root:not([data-tema="claro"]) …}` para o automático e `:root[data-tema="escuro"] …` para a escolha manual. Regras escuras novas devem seguir esse padrão.
 - **Modo TV** (`?tv=1`), para o telão da sala de TI:
-  - **Parque e custos** (`/?tv=1`) e **Visão Executiva de TI** (`/indicadores?tv=1`).
+  - **Ativos e custos** (`/?tv=1`) e **Visão Executiva de TI** (`/indicadores?tv=1`).
   - Layout comum (`Views/tv.php`, `assets/tv.css` e `assets/tv.js`), sem menu lateral: cabeçalho verde com o logotipo, título, relógio no Horário de Mato Grosso – UTC-4, seletor de tema, botão de tela cheia e botão de saída.
   - Os filtros ficam recolhidos em "Filtros e atualização".
   - **Atualização:** o Parque recarrega a página a cada 1, 5 (padrão) ou 15 minutos. A Visão Executiva atualiza só os dados, sem recarregar a página. Com a aba em segundo plano, a atualização pausa.
@@ -306,7 +308,7 @@ Views: `vw_compras_custos` e `vw_apontamentos_custos`. Valores gerenciais usam D
 
 | Rota | Finalidade |
 |---|---|
-| `/` | Parque e custos |
+| `/` | Ativos e custos |
 | `/projetos`, `/projeto?id=...` | Lista e painel de projetos |
 | `/compras` | Triagem e conferência das compras |
 | `/ativos`, `/estoque` | Patrimônios e materiais |
@@ -511,6 +513,8 @@ Ajustes feitos depois dessa verificação:
 | PDF no timbrado | Validar o layout com a Comunicação/Marketing (A4 paisagem e Helvetica, enquanto o modelo Word é retrato com Author/Poppins). Se o timbrado mudar, atualizar `RelatorioPdf::ENDERECOS`/`CNPJ` e rodar `bin/gerar-logo-pdf.py`. |
 | Indicadores de TI | Rodar o **iniciar.ps1** para aplicar a migração 007. Lançar ou importar os valores atuais do Power BI e o registro de riscos. Próximas etapas: demais páginas (Segurança M365, Disponibilidade & Rede etc.) e coleta direta e agendada por API (Zabbix, UniFi, Microsoft Graph, NinjaOne) em modo leitura. |
 | Mapas e áreas → Prédios | **Próxima etapa, pedida em 20/10:** redesenhar a aba como **Prédios**, sem novos GeoTIFFs. Fica só o apontamento de itens e custos por prédio/área. A georreferência para o Zabbix sai do escopo. |
+| Repositório público | **Decisão pendente.** Antes de tornar o GitHub público é preciso: (1) tirar do repositório a fonte Author, cuja licença Fontshare proíbe publicar os arquivos em servidor público; (2) tirar dos documentos e do histórico os valores reais de compras, os CCs e os projetos; (3) ter autorização da empresa para os logotipos e o timbrado. Caminho recomendado: um repositório público novo, limpo e sem histórico. |
+| Testes antigos com "Syntax error" | `verificar-parque`, `-periodos`, `-fluxos` e `-project` leem arquivos privados de `evidencias/`, que não existem nesta instalação. O "Syntax error" é o JSON vazio. O `verificar-ponta-a-ponta` já cobre esses fluxos com dados sintéticos. |
 | Senha do banco | Rodar `bin/definir-senha-db.php` na instalação, reiniciar a aplicação e guardar a senha no gerenciador de senhas, se usar `--mostrar`. |
 
 Esse estado é uma base funcional para testes, não comprovação de aceite de produção. Funcionalidade implementada e teste sintético aprovado não substituem conferência da rede, dos dados físicos ou das regras da operação.
@@ -538,7 +542,7 @@ O primeiro envio contém 85 arquivos revisados. A verificação de publicação 
 - [Rasterio — reprojeção](https://rasterio.readthedocs.io/en/stable/topics/reproject.html)
 - [GDAL — GeoTIFF](https://gdal.org/en/stable/drivers/raster/gtiff.html)
 
-Guias específicos incluídos: [Relatórios](RELATORIOS.md), [Centros de custo SGA](CENTROS-CUSTO-SGA.md), [Requisitantes SGA](REQUISITANTES-SGA.md), [Mapas e áreas](MAPAS-E-AREAS.md), [Project XML](EXPORTAR-MICROSOFT-PROJECT.md), [Filtros de datas](FILTROS-DE-DATAS.md), [Projetos](PROJETOS-E-CUSTOS.md), [Parque e custos](PAINEL-PARQUE-CUSTOS.md), [Patrimônios SGA](ATIVOS-SGA.md) e [Identidade visual](IDENTIDADE-VISUAL.md). Em caso de divergência com um guia antigo, conferir primeiro o código atual e este documento consolidado.
+Guias específicos incluídos: [Relatórios](RELATORIOS.md), [Centros de custo SGA](CENTROS-CUSTO-SGA.md), [Requisitantes SGA](REQUISITANTES-SGA.md), [Mapas e áreas](MAPAS-E-AREAS.md), [Project XML](EXPORTAR-MICROSOFT-PROJECT.md), [Filtros de datas](FILTROS-DE-DATAS.md), [Projetos](PROJETOS-E-CUSTOS.md), [Ativos e custos](PAINEL-PARQUE-CUSTOS.md), [Patrimônios SGA](ATIVOS-SGA.md) e [Identidade visual](IDENTIDADE-VISUAL.md). Em caso de divergência com um guia antigo, conferir primeiro o código atual e este documento consolidado.
 
 ## 15. Histórico de alterações
 
@@ -550,6 +554,7 @@ Guias específicos incluídos: [Relatórios](RELATORIOS.md), [Centros de custo S
 | 20/10/2026 | **Escopo por centro de custo** (união com requisitantes, filhos por `CCSTCOD`, limites 300 CCs / 5.000 linhas, auditoria, tela) | `CentrosCusto.php`, `Web.php`, `app.php`, `Minerion.php`, `PatrimoniosSga.php`, `DocumentosCompra.php`, consultas SQL |
 | 20/10/2026 | Verificação geral: novos testes `verificar-centros-custo` e `verificar-ponta-a-ponta`; correção de `bin/coletar.php` e do caminho fixo do Python | `bin/`, `Mapas.php` |
 | 20/10/2026 09:20 | Verificação no navegador e sincronização do escopo 768: 196 compras, 3 ativos associados, 12 ambíguos, 9 sem número (seção 11.4) | — |
+| 23/10/2026 14:45 | **Uso ampliado, sem referências a "parque de TI"**: nome exibido **Salinas Gestão de Ativos** (`nome_app()`, configurável por `APP_NAME`); menu e painel **Ativos e custos**; login, topo, rodapé, títulos, PDF, Project XML, CSV e scripts `.ps1` neutros. A Visão Executiva **de TI** continua, porque os indicadores são de TI. Código, rotas, banco e repositório mantêm os nomes internos. Ponta a ponta com 103 verificações (inclui busca dos termos antigos nas telas) | `bootstrap.php`, `Web.php`, views, `RelatorioPdf.php`, `Pdf.php`, `ProjectXml.php`, `instalar.php`, `.ps1`, `.env.example`, docs, testes |
 | 20/10/2026 15:45 | **Tema claro/escuro** em todo o sistema (seletor no topo, cookie por navegador, sem redirecionamento aberto) e **Modo TV** também no **Parque e custos**, com layout comum (`tv.php`, `tv.css`, `tv.js`) e recarga periódica. Script `bin/definir-senha-db.php` para trocar a senha do usuário do banco com backup, reversão e auditoria. Ponta a ponta com 97 verificações | `bootstrap.php`, `Web.php`, `app.php`, `login.php`, `error.php`, `tv.php`, `parque-tv.php`, `periodo.php`, `indicadores.php`, CSS/JS, `definir-senha-db.php`, testes |
 | 20/10/2026 15:00 | **Indicadores de TI · Visão Executiva** (base no Power BI *SGM \| Dashboard de TI* e no padrão do Access Gate): 10 cartões com meta, parque/compras do escopo, gráficos SVG (disponibilidade diária, controles, riscos, parque), riscos altos, Modo TV e atualização automática. Tela **Dados dos indicadores**: lançamento, CSV tudo-ou-nada (medições e riscos), metas (admin), remoção auditada. Migração 007. Testes: `verificar-indicadores` (portátil) e ponta a ponta com 88 verificações | `007_indicadores_ti.sql`, `IndicadoresTi.php`, `GraficoSvg.php`, `Web.php`, `app.php`, `indicadores*.php`, `indicadores.css/js`, `INDICADORES-TI.md`, testes |
 | 20/10/2026 14:00 | **PDF no timbrado oficial** (`MODELO - TIMBRADO.docx`): sai a faixa verde com o logotipo em placa branca; entram o logotipo direto sobre o fundo branco, a faixa amarela lateral com razão social e CNPJ em texto vertical e o rodapé com linha verde, marcadores e endereços (Nossa Senhora do Livramento/MT e Cuiabá/MT) e listras diagonais. Faixa, linha e listras em vetor. `Pdf.php` ganhou polígono preenchido e texto vertical. Testes atualizados; ponta a ponta com 69 verificações | `Pdf.php`, `RelatorioPdf.php`, `Assets/pin-endereco-pdf.png`, `gerar-logo-pdf.py`, `RELATORIOS.md`, testes |

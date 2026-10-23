@@ -13,7 +13,7 @@ try {
     $ini = Join-Path $storage 'mariadb.ini'
     $pidFile = Join-Path $storage 'mariadb-process.pid'
     if (!(Test-Path -LiteralPath (Join-Path $dataDir 'mysql'))) {
-        Write-Host 'Preparando banco MariaDB isolado para Salinas TI...'
+        Write-Host 'Preparando banco MariaDB isolado para Salinas Gestao de Ativos...'
         & (Join-Path $mariaHome 'bin\mysql_install_db.exe') "--datadir=$dataDir" --port=3308 --silent
         if ($LASTEXITCODE -ne 0) { throw 'Falha ao preparar MariaDB.' }
     }
@@ -77,7 +77,7 @@ pid-file=$mariaPid
         try { $health=Invoke-RestMethod -Uri 'http://127.0.0.1:2288/saude' -TimeoutSec 2; if($health.status -eq 'ok') { $healthy=$true; break } } catch { Start-Sleep -Milliseconds 500 }
     }
     if(!$healthy) { throw 'Aplicacao nao respondeu. Consulte storage/logs.' }
-    Write-Host 'Salinas TI pronto: http://localhost:2288'
+    Write-Host 'Salinas Gestao de Ativos pronto: http://localhost:2288'
     Write-Host 'Leia ACESSO-LOCAL.txt para o primeiro login.'
     if(!$SemNavegador) { Start-Process 'http://localhost:2288' }
 } catch {
