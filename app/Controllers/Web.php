@@ -3,6 +3,10 @@ declare(strict_types=1);
 namespace App\Controllers;
 use App\Core\Database as DB;
 use App\Services\Integracao;
+use App\Services\Requisitantes;
+use App\Services\CentrosCusto;
+use App\Services\Relatorios;
+use App\Services\RelatorioPdf;
 use App\Services\Inventario;
 use App\Services\Projetos;
 use App\Services\ProjectXml;
@@ -11,6 +15,7 @@ use App\Services\Periodo;
 use App\Services\Parque;
 use App\Services\Mapas;
 use App\Services\PatrimoniosSga;
+use App\Services\IndicadoresTi;
 use RuntimeException;
 final class Web {
     public static function run(): void {
@@ -21,6 +26,13 @@ final class Web {
         if(isset($_SESSION['last']) && time()-$_SESSION['last']>3600) { $_SESSION=[]; session_regenerate_id(true); }
         $_SESSION['last']=time(); $_SESSION['csrf']??=bin2hex(random_bytes(24));
         $path=parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH)?:'/';
+        if($path==='/tema') {
+            // Preferência de tema por navegador; o retorno aceita só caminhos locais (sem redirecionamento aberto).
+            $v=(string)($_GET['valor']??''); if(!in_array($v,['claro','escuro','auto'],true)) $v='auto';
+            setcookie('tema',$v==='auto'?'':$v,['expires'=>$v==='auto'?time()-3600:time()+31536000,'path'=>'/','samesite'=>'Lax','secure'=>!empty($_SERVER['HTTPS'])&&$_SERVER['HTTPS']!=='off']);
+            $voltar=(string)($_GET['voltar']??'/'); if(!preg_match('~^/(?![/\\\\])[^\\s\\\\]*$~',$voltar)) $voltar='/';
+            header('Location: '.$voltar,true,303); return;
+        }
         if($path==='/saude') { header('Content-Type: application/json'); try { DB::one('SELECT 1'); echo '{"status":"ok"}'; } catch(\Throwable) { http_response_code(503); echo '{"status":"indisponivel"}'; } return; }
         try {
             if($_SERVER['REQUEST_METHOD']==='POST') {
@@ -38,14 +50,41 @@ final class Web {
                 if(!$can) throw new RuntimeException('Seu perfil permite apenas consulta.');
                 self::action($path,$u); return;
             }
-            $periodo=Periodo::ler(in_array($path,['/','/projetos','/projeto','/projeto-exportar'],true)?$_GET:[]);
-            $params=['periodo'=>$periodo,'u'=>$u,'can'=>$can,'path'=>$path,'title'=>match($path){'/'=>'Parque e custos','/mapas'=>'Mapas e áreas','/mapa'=>'Mapa e apontamentos','/projetos'=>'Projetos e custos','/projeto'=>'Painel do projeto','/compras'=>'Compras do Minerion','/ativos'=>'Patrimônios','/estoque'=>'Estoque de materiais','/cadastros'=>'Cadastros','/integracao'=>'Integração SGA','/historico'=>'Movimentações e auditoria','/conta'=>'Minha conta',default=>'Visão geral'}];
+            // Indicadores: padrão "Últimos 30 dias" quando nenhum período foi escolhido.
+            $periodo=Periodo::ler(in_array($path,['/','/projetos','/projeto','/projeto-exportar','/relatorios','/relatorio-exportar','/relatorio-pdf'],true)?$_GET:($path==='/indicadores'?$_GET+['periodo'=>'30dias']:[]));
+            $escopoTodos=($_GET['escopo']??'')==='todos'; // padrão: somente o escopo atual (requisitantes/CC configurados)
+            $params=['escopoTodos'=>$escopoTodos,'periodo'=>$periodo,'u'=>$u,'can'=>$can,'path'=>$path,'title'=>match($path){'/'=>'Ativos e custos','/mapas'=>'Mapas e áreas','/mapa'=>'Mapa e apontamentos','/projetos'=>'Projetos e custos','/projeto'=>'Painel do projeto','/compras'=>'Compras do Minerion','/ativos'=>'Patrimônios','/estoque'=>'Estoque de materiais','/cadastros'=>'Cadastros','/integracao'=>'Integração SGA','/historico'=>'Movimentações e auditoria','/conta'=>'Minha conta','/relatorios'=>'Relatórios de gastos','/indicadores'=>'Visão Executiva de TI','/indicadores-dados'=>'Dados dos indicadores',default=>'Visão geral'}];
             if($path==='/mapa-imagem') Mapas::arquivo((int)($_GET['id']??0));
             if($path==='/mapa-original') Mapas::arquivo((int)($_GET['id']??0),true);
             if($path==='/mapa-exportar') Mapas::exportar((int)($_GET['id']??0));
             if($path==='/exportar') { self::export(); return; }
             if($path==='/projeto-project'){ $file=ProjectXml::gerar((int)($_GET['id']??0)); header('Content-Type: application/xml; charset=UTF-8');header('Content-Disposition: attachment; filename="'.$file['nome'].'"');echo $file['xml'];return; }
             if($path==='/projeto-exportar') { self::exportProjeto((int)($_GET['id']??0)); return; }
+            if($path==='/relatorio-exportar') { self::exportRelatorio($periodo); return; }
+            if($path==='/relatorio-pdf') {
+                $sel=$_GET['cc']??[]; $sel=is_array($sel)?array_map('intval',array_filter($sel,'is_string')):[];
+                $pdf=RelatorioPdf::gerar(Relatorios::gerar(Relatorios::selecionar($sel),$periodo,RelatorioPdf::LIMITE_LINHAS),$periodo,(string)$u['nome']);
+                header('Content-Type: application/pdf'); header('Content-Disposition: attachment; filename="relatorio-gastos-cc-'.date('Ymd-Hi').'.pdf"'); header('Content-Length: '.strlen($pdf));
+                echo $pdf; return;
+            }
+            if($path==='/indicadores-modelo') {
+                $tipo=(string)($_GET['tipo']??''); $csv=IndicadoresTi::modelo($tipo);
+                header('Content-Type: text/csv; charset=UTF-8'); header('Content-Disposition: attachment; filename="modelo-indicadores-'.$tipo.'.csv"'); echo $csv; return;
+            }
+            if($path==='/indicadores') {
+                // Visão Executiva de TI: página normal, Modo TV (?tv=1) e miolo para atualização automática (?parcial=1).
+                $atualizar=(int)($_GET['atualizar']??IndicadoresTi::ATUALIZACAO_PADRAO); if(!isset(IndicadoresTi::ATUALIZACOES[$atualizar])) $atualizar=IndicadoresTi::ATUALIZACAO_PADRAO;
+                $params+=['ind'=>IndicadoresTi::painel($periodo),'atualizar'=>$atualizar,'modoTv'=>($_GET['tv']??'')==='1'];
+                if(($_GET['parcial']??'')==='1') { header('Cache-Control: no-store'); self::view('indicadores-conteudo',$params); return; }
+                if($params['modoTv']) { self::view('tv',$params+['tvView'=>'indicadores','tvTitulo'=>'Visão Executiva de TI','tvSubtitulo'=>'Disponibilidade, segurança, conformidade e ativos — Salinas Gold Mineração','tvSair'=>'/indicadores?'.http_build_query(array_diff_key($_GET,['tv'=>1,'parcial'=>1])),'recarregar'=>0]); return; }
+                self::view('app',$params); return;
+            }
+            if($path==='/indicadores-dados') {
+                if(!$can) throw new RuntimeException('Seu perfil permite apenas consulta.');
+                $params['pronto']=IndicadoresTi::pronto(); $params['admin']=$u['perfil']==='admin';
+                $params+=$params['pronto']?['catalogo'=>IndicadoresTi::catalogo(),'medicoes'=>IndicadoresTi::ultimasMedicoes(),'riscosLista'=>DB::all('SELECT * FROM riscos_ti ORDER BY FIELD(situacao,\'aberto\',\'em_tratamento\',\'aceito\',\'tratado\'),nivel DESC,codigo')]:['catalogo'=>[],'medicoes'=>[],'riscosLista'=>[]];
+                self::view('app',$params); return;
+            }
             if($path==='/integracao' && $u['perfil']!=='admin') throw new RuntimeException('Somente administradores podem configurar a integração.');
             $params['locais']=DB::all('SELECT id,nome FROM locais WHERE ativo=1 ORDER BY nome');
             $params['ccs']=DB::all("SELECT id,CONCAT(COALESCE(sga_codigo,'Local'),' · ',nome) nome FROM centros_custo WHERE ativo=1 ORDER BY nome");
@@ -81,9 +120,16 @@ final class Web {
                     if($filter==='faturadas') $where.=' AND c.vinculos_nf_positivos>0';
                     if($filter==='pendentes') $where.=" AND c.triagem='pendente' AND c.vinculos_nf_positivos>0";
                     if($filter==='incluidas') $where.=" AND c.triagem='incluir'";
+                    if(!$escopoTodos) { [$scopeSql,$scopeArgs]=CentrosCusto::condicaoLocal('c.requisitante_codigo','c.centro_custo_compra_id'); $where.=' AND '.$scopeSql; $p=[...$p,...$scopeArgs]; }
+                    // Origem no escopo: um requisitante ou um centro de custo configurado (mesma definição dos totais do Painel).
+                    $origem=(string)($_GET['origem']??''); $origens=CentrosCusto::origens(); $reqNomes=[];
+                    foreach($origens as $o) if($o['tipo']==='Requisitante') $reqNomes[$o['codigo']]=$o['rotulo'];
+                    $sel=array_values(array_filter($origens,static fn($o)=>$o['chave']===$origem));
+                    if($sel) { $where.=' AND '.$sel[0]['sql']; $p=[...$p,...$sel[0]['args']]; } else $origem='';
+                    $params+=['origem'=>$origem,'origemReq'=>$reqNomes,'origemCc'=>CentrosCusto::config()['centros'],'ccEscopo'=>CentrosCusto::lista()];
                     $base=' FROM compras_origem c JOIN produtos p ON p.id=c.produto_id JOIN requisitantes_sga r ON r.codigo=c.requisitante_codigo LEFT JOIN centros_custo cc ON cc.id=c.centro_custo_compra_id';
                     $total=(int)DB::one('SELECT COUNT(*) n'.$base.$where,$p)['n']; $page=max(1,min((int)($_GET['pagina']??1),max(1,(int)ceil($total/40))));
-                    $params+=['q'=>$q,'filter'=>$filter,'total'=>$total,'page'=>$page,'rows'=>DB::all('SELECT c.*,p.nome produto,p.controle,p.unidade,p.categoria,r.nome requisitante,cc.nome cc_nome'.$base.$where.' ORDER BY c.processo_data DESC,c.id DESC LIMIT 40 OFFSET '.(($page-1)*40),$p)];
+                    $params+=['q'=>$q,'filter'=>$filter,'total'=>$total,'page'=>$page,'rows'=>DB::all('SELECT c.*,p.nome produto,p.controle,p.unidade,p.categoria,r.nome requisitante,cc.nome cc_nome,cc.sga_codigo cc_sga'.$base.$where.' ORDER BY c.processo_data DESC,c.id DESC LIMIT 40 OFFSET '.(($page-1)*40),$p)];
                     $params['projetosSelect']=DB::all("SELECT id,CONCAT(codigo,' · ',nome) nome FROM projetos WHERE status<>'arquivado' ORDER BY nome");
                     $params['rateiosPorCompra']=[];
                     $ids=array_column($params['rows'],'id');
@@ -92,10 +138,13 @@ final class Web {
                 case '/ativos':
                     $q=mb_substr(trim((string)($_GET['q']??'')),0,120); $estado=(string)($_GET['situacao']??'');
                     $params['qAtivos']=$q; $params['estadoAtivos']=$estado;
-                    $params['rows']=Parque::itens($q,$estado);
+                    $params['rows']=Parque::itens($q,$estado,!$escopoTodos);
                     $params['sgaPorAtivo']=[];
                     foreach(DB::all('SELECT * FROM patrimonios_sga ORDER BY atualizado_em DESC,id DESC') as $sga) if($sga['ativo_id']&&!isset($params['sgaPorAtivo'][$sga['ativo_id']])) $params['sgaPorAtivo'][$sga['ativo_id']]=$sga;
                     $params['pendenciasSga']=DB::all("SELECT * FROM patrimonios_sga WHERE situacao IN ('ambiguo','conflito') ORDER BY id DESC");
+                    if(!$escopoTodos) $params['pendenciasSga']=array_values(array_filter($params['pendenciasSga'],static fn(array $s):bool=>CentrosCusto::patrimonioNoEscopo(json_decode((string)$s['payload_json'],true)?:[])));
+                    $params['semNumeroSga']=DB::all("SELECT * FROM patrimonios_sga WHERE situacao='sem_numero' ORDER BY id DESC");
+                    if(!$escopoTodos) $params['semNumeroSga']=array_values(array_filter($params['semNumeroSga'],static fn(array $s):bool=>CentrosCusto::patrimonioNoEscopo(json_decode((string)$s['payload_json'],true)?:[])));
                     $params['resumoSga']=DB::one("SELECT COUNT(*) registros,COALESCE(SUM(situacao='sem_numero'),0) sem_numero,COALESCE(SUM(situacao='associado'),0) associados FROM patrimonios_sga");
                     break;
                 case '/estoque':
@@ -106,20 +155,35 @@ final class Web {
                     $params['rows']=DB::all('SELECT m.*,p.nome produto,a.patrimonio,u.nome autor,lo.nome origem,ld.nome destino,co.nome cc_origem,cd.nome cc_destino,ro.nome resp_origem,rd.nome resp_destino FROM movimentacoes m LEFT JOIN ativos a ON a.id=m.ativo_id LEFT JOIN lotes_estoque l ON l.id=m.lote_id JOIN produtos p ON p.id=COALESCE(a.produto_id,l.produto_id) JOIN usuarios u ON u.id=m.autor_id LEFT JOIN locais lo ON lo.id=m.local_origem_id LEFT JOIN locais ld ON ld.id=m.local_destino_id LEFT JOIN centros_custo co ON co.id=m.cc_origem_id LEFT JOIN centros_custo cd ON cd.id=m.cc_destino_id LEFT JOIN responsaveis ro ON ro.id=m.responsavel_origem_id LEFT JOIN responsaveis rd ON rd.id=m.responsavel_destino_id ORDER BY m.id DESC LIMIT 200');
                     $params['audit']=DB::all('SELECT a.*,u.nome autor FROM auditoria a LEFT JOIN usuarios u ON u.id=a.autor_id ORDER BY a.id DESC LIMIT 100'); break;
                 case '/conta': break;
+                case '/relatorios':
+                    $sel=$_GET['cc']??[]; if(!is_array($sel)) $sel=[];
+                    $params['ccDisponiveis']=Relatorios::selecionar([]);
+                    $params['relatorioOrigens']=Relatorios::selecionar(array_map('intval',array_filter($sel,'is_string')));
+                    $params['ccSelecionados']=array_column($params['relatorioOrigens'],'codigo');
+                    $params['relatorio']=Relatorios::gerar($params['relatorioOrigens'],$periodo);
+                    break;
                 case '/':
-                    $params+=Parque::painel($periodo);
-                    $params['last']=DB::one('SELECT * FROM sincronizacoes ORDER BY id DESC LIMIT 1'); break;
+                    $params['origensPainel']=CentrosCusto::origens(); $params['origemPainel']=(string)($_GET['origem']??'');
+                    if(!CentrosCusto::origem($params['origemPainel'])) $params['origemPainel']='';
+                    $params+=Parque::painel($periodo,!$escopoTodos,$params['origemPainel']);
+                    $params['last']=DB::one('SELECT * FROM sincronizacoes ORDER BY id DESC LIMIT 1');
+                    if(($_GET['tv']??'')==='1') {
+                        // Modo TV do painel Ativos e custos: recarrega a página inteira no intervalo escolhido.
+                        $atualizar=(int)($_GET['atualizar']??IndicadoresTi::ATUALIZACAO_PADRAO); if(!isset(IndicadoresTi::ATUALIZACOES[$atualizar])) $atualizar=IndicadoresTi::ATUALIZACAO_PADRAO;
+                        self::view('tv',$params+['modoTv'=>true,'atualizar'=>$atualizar,'tvView'=>'parque-tv','tvTitulo'=>'Ativos e custos','tvSubtitulo'=>'Custo dos ativos, compras do escopo SGA e projetos — Salinas Gold Mineração','tvSair'=>'/?'.http_build_query(array_diff_key($_GET,['tv'=>1,'atualizar'=>1])),'recarregar'=>$atualizar]); return;
+                    }
+                    break;
                 default: http_response_code(404); throw new RuntimeException('Página não encontrada.');
             }
             self::view('app',$params);
         } catch(\Throwable $e) {
             $message=$e instanceof RuntimeException && !$e instanceof \PDOException ? $e->getMessage() : 'Não foi possível concluir. Confira a configuração ou possíveis dados duplicados.';
-            error_log('Salinas TI: '.get_class($e).' codigo '.$e->getCode());
+            error_log(nome_app().': '.get_class($e).' codigo '.$e->getCode());
             if($_SERVER['REQUEST_METHOD']==='POST') { $_SESSION['error']=$message; url(empty($_SESSION['uid'])?'/login':self::back($path)); }
             self::view('error',['title'=>'Verificação necessária','message'=>$message]);
         }
     }
-    private static function back(string $p): string { return match($p){'/mapa-upload'=>'/mapas','/mapa-area','/mapa-vincular','/mapa-desvincular'=>'/mapa?id='.(int)($_POST['mapa_id']??0),'/projeto-salvar'=>'/projetos','/projeto-documento-buscar','/projeto-documento-confirmar'=>'/projeto?id='.(int)($_POST['projeto_id']??0).'#documento-coleta','/projeto-apontar','/projeto-desvincular'=>(($_POST['voltar_compras']??'')==='1'?'/compras':'/projeto?id='.(int)($_POST['projeto_id']??0)),'/triagem','/incorporar'=>'/compras','/mover-ativo','/patrimonio-conferir','/patrimonio-associar'=>'/ativos','/mover-material'=>'/estoque','/cadastro'=>'/cadastros','/sga-salvar','/sga-sincronizar'=>'/integracao','/senha'=>'/conta',default=>'/'}; }
+    private static function back(string $p): string { return match($p){'/mapa-upload'=>'/mapas','/mapa-area','/mapa-vincular','/mapa-desvincular'=>'/mapa?id='.(int)($_POST['mapa_id']??0),'/projeto-salvar'=>'/projetos','/projeto-documento-buscar','/projeto-documento-confirmar'=>'/projeto?id='.(int)($_POST['projeto_id']??0).'#documento-coleta','/projeto-apontar','/projeto-desvincular'=>(($_POST['voltar_compras']??'')==='1'?'/compras':'/projeto?id='.(int)($_POST['projeto_id']??0)),'/triagem','/incorporar'=>'/compras','/mover-ativo','/patrimonio-conferir','/patrimonio-associar'=>'/ativos','/mover-material'=>'/estoque','/cadastro'=>'/cadastros','/sga-salvar','/sga-sincronizar','/sga-requisitante','/sga-requisitante-remover','/sga-centro-custo','/sga-centro-custo-remover'=>'/integracao','/relatorio-gerar'=>'/relatorios','/indicador-medicao','/indicador-medicao-remover','/indicador-meta','/indicador-risco','/indicadores-importar'=>'/indicadores-dados','/senha'=>'/conta',default=>'/'}; }
     private static function login(): never {
         $email=strtolower(trim((string)($_POST['email']??''))); $key=hash('sha256',$email.'|'.($_SERVER['REMOTE_ADDR']??''));
         $t=DB::one('SELECT * FROM login_tentativas WHERE chave=?',[$key]);
@@ -174,13 +238,70 @@ final class Web {
                     }
                     DB::audit($table,DB::pdo()->lastInsertId(),'criar',null,['nome'=>$name],$actor);
                 }); break;
+            case '/sga-requisitante':
+                if($u['perfil']!=='admin') throw new RuntimeException('Permissão insuficiente.');
+                $before=Requisitantes::lista();
+                $req=Requisitantes::adicionar($_POST['requisitante_id']??'');
+                DB::audit('integracao','requisitantes','adicionar',['ids'=>$before],$req,$actor);
+                $_SESSION['success']='Requisitante '.$req['codigo'].' — '.$req['nome'].($req['adicionado']?' adicionado. Execute a sincronização para carregar suas compras.':' já está incluído nas consultas.');
+                url('/integracao');
+            case '/sga-requisitante-remover':
+                if($u['perfil']!=='admin') throw new RuntimeException('Permissão insuficiente.');
+                $before=Requisitantes::lista();
+                $req=Requisitantes::remover($_POST['requisitante_id']??'');
+                DB::audit('integracao','requisitantes','remover',['ids'=>$before],$req,$actor);
+                $_SESSION['success']='Requisitante '.$req['codigo'].($req['removido']?' removido das próximas consultas. O histórico importado foi preservado.':' já está fora da consulta.');
+                url('/integracao');
+            case '/sga-centro-custo':
+                if($u['perfil']!=='admin') throw new RuntimeException('Permissão insuficiente.');
+                $before=CentrosCusto::config()['centros'];
+                $cc=CentrosCusto::adicionar($_POST['centro_custo_id']??'',!empty($_POST['incluir_filhos']));
+                DB::audit('integracao','centros_custo','adicionar',['centros'=>$before],$cc,$actor);
+                $_SESSION['success']='Centro de custo '.$cc['codigo'].' — '.$cc['nome'].($cc['adicionado']?' incluído. ':' já estava na consulta com essa opção. ').$cc['efetivos'].' CC(s) efetivos; '.$cc['linhas_extras'].' linhas de outros requisitantes entram na próxima sincronização.'.($cc['bloqueado']?' Atenção: o CC está bloqueado no SGA.':'');
+                url('/integracao');
+            case '/sga-centro-custo-remover':
+                if($u['perfil']!=='admin') throw new RuntimeException('Permissão insuficiente.');
+                $before=CentrosCusto::config()['centros'];
+                $cc=CentrosCusto::remover($_POST['centro_custo_id']??'');
+                DB::audit('integracao','centros_custo','remover',['centros'=>$before],$cc,$actor);
+                $_SESSION['success']='Centro de custo '.$cc['codigo'].($cc['removido']?' removido das próximas consultas. O histórico importado foi preservado.':' já estava fora da consulta.');
+                url('/integracao');
+            case '/relatorio-gerar':
+                // CCs novos entram no escopo (validados no SGA) e a sincronização roda antes do relatório.
+                $novos=Relatorios::codigosNovos((string)($_POST['novos']??''));
+                $sincronizar=!empty($_POST['sincronizar']);
+                if(($novos || $sincronizar) && $u['perfil']!=='admin') throw new RuntimeException('Somente administradores incluem centros de custo e sincronizam com o SGA.');
+                $msg='';
+                if($novos || $sincronizar) {
+                    set_time_limit(300);
+                    $r=Relatorios::prepararComSincronizacao($novos,!empty($_POST['incluir_filhos']),$actor);
+                    $msg=($r['adicionados']?count($r['adicionados']).' centro(s) de custo incluído(s): '.implode(', ',array_map(static fn($a)=>$a['codigo'].' — '.$a['nome'],$r['adicionados'])).'. ':'').'SGA sincronizado: '.$r['sincronizacao']['compras'].' compras no escopo.';
+                }
+                $sel=$_POST['cc']??[]; $sel=is_array($sel)?array_values(array_filter($sel,'is_string')):[];
+                foreach($novos as $n) $sel[]=(string)$n;
+                $q=['periodo'=>(string)($_POST['periodo']??'todos'),'data_inicio'=>(string)($_POST['data_inicio']??''),'data_fim'=>(string)($_POST['data_fim']??''),'cc'=>array_values(array_unique($sel))];
+                Periodo::ler($q);
+                $_SESSION['success']=$msg!==''?$msg:'Relatório gerado com os dados já importados.';
+                url('/relatorios?'.http_build_query($q));
+            case '/indicador-medicao': IndicadoresTi::lancar($_POST,$actor); $_SESSION['success']='Medição lançada.'; url('/indicadores-dados');
+            case '/indicador-medicao-remover': IndicadoresTi::remover((int)($_POST['id']??0),$actor); $_SESSION['success']='Medição removida (registrada na auditoria).'; url('/indicadores-dados');
+            case '/indicador-meta':
+                if($u['perfil']!=='admin') throw new RuntimeException('Somente administradores alteram metas.');
+                IndicadoresTi::salvarMeta($_POST,$actor); $_SESSION['success']='Meta atualizada.'; url('/indicadores-dados');
+            case '/indicador-risco': DB::transaction(fn()=>IndicadoresTi::salvarRisco($_POST,$actor)); $_SESSION['success']='Risco salvo.'; url('/indicadores-dados');
+            case '/indicadores-importar':
+                $f=$_FILES['arquivo']??[];
+                if(($f['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK || !is_uploaded_file((string)($f['tmp_name']??''))) throw new RuntimeException('Envie um arquivo CSV pelo formulário.');
+                if(!preg_match('/\.csv$/i',(string)($f['name']??'')) || (int)($f['size']??0)>IndicadoresTi::LIMITE_CSV_BYTES) throw new RuntimeException('Envie um arquivo .csv de até 2 MB.');
+                $tipo=(string)($_POST['tipo']??''); $n=IndicadoresTi::importar($tipo,(string)file_get_contents((string)$f['tmp_name']),$actor);
+                $_SESSION['success']=$n.' linha(s) importada(s) ('.($tipo==='riscos'?'riscos':'medições').').'; url('/indicadores-dados');
             case '/sga-salvar':
                 if($u['perfil']!=='admin') throw new RuntimeException('Permissão insuficiente.');
                 Integracao::salvar($_POST); DB::audit('integracao','sga','configurar',null,['servidor'=>$_POST['servidor'],'banco'=>$_POST['banco']],$actor); break;
             case '/sga-sincronizar':
                 if($u['perfil']!=='admin') throw new RuntimeException('Permissão insuficiente.');
                 set_time_limit(180); $sync=Integracao::sincronizar($actor); $n=$sync['compras'];
-                $_SESSION['success']="$n compras sincronizadas. Patrimônios: ".$sync['patrimonios']['associado']." associados; ".$sync['patrimonios']['ambiguo']." ambíguos; ".$sync['patrimonios']['sem_numero']." sem número."; url('/integracao');
+                $_SESSION['success']="$n compras sincronizadas. Patrimônios: ".$sync['patrimonios']['associado']." associados; ".$sync['patrimonios']['ambiguo']." ambíguos; ".$sync['patrimonios']['sem_numero']." sem número.".($sync['aviso']??''); url('/integracao');
             case '/senha':
                 $pw=(string)($_POST['nova_senha']??''); $old=DB::one('SELECT senha_hash FROM usuarios WHERE id=?',[$actor]);
                 if(!password_verify((string)($_POST['senha_atual']??''),$old['senha_hash'])) throw new RuntimeException('Senha atual incorreta.');
@@ -195,6 +316,21 @@ final class Web {
         $_SESSION['documentos_projetos'][$id]=['token'=>bin2hex(random_bytes(24)),'expires'=>time()+900,'documento'=>DocumentosCompra::preparar($doc)];
     }
     private static function view(string $file,array $vars): void { extract($vars,EXTR_SKIP); require ROOT.'/app/Views/'.$file.'.php'; }
+    private static function exportRelatorio(Periodo $periodo): void {
+        $sel=$_GET['cc']??[]; $sel=is_array($sel)?array_map('intval',array_filter($sel,'is_string')):[];
+        $r=Relatorios::gerar(Relatorios::selecionar($sel),$periodo,null);
+        header('Content-Type: text/csv; charset=UTF-8'); header('Content-Disposition: attachment; filename="relatorio-gastos-cc-'.date('Ymd-His').'.csv"');
+        $out=fopen('php://output','w'); fwrite($out,"\xEF\xBB\xBF");
+        $safe=static fn(array $row)=>array_map(fn($v)=>preg_match('/^[\s]*[=+@-]/u',(string)$v)?"'".$v:($v??''),$row);
+        fputcsv($out,['Resumo por centro de custo',$periodo->rotulo()],';');
+        fputcsv($out,['CC','Centro de custo','Linhas','Total pedido BRL','Com NF positiva BRL','Sem patrimonio BRL','Patrimonios (n)','Patrimonios BRL','Bens sem numero (n)','Bens sem numero BRL'],';');
+        foreach($r['origens'] as $o) fputcsv($out,$safe([$o['codigo'],$o['rotulo'],$o['linhas']??0,$o['total']??0,$o['total_nf']??0,$o['sem_patrimonio']??0,$o['ativos']['n'],$o['ativos']['valor'],$o['sem_numero']['n'],$o['sem_numero']['valor']]),';');
+        fputcsv($out,$safe(['Total geral (sem dupla contagem)','',$r['total']['linhas']??0,$r['total']['total']??0,$r['total']['total_nf']??0,$r['total']['sem_patrimonio']??0]),';');
+        fputcsv($out,[],';');
+        fputcsv($out,['Data compra','Compra SGA','Processo','Produto','Requisitante','CC SGA','Centro de custo','Valor pedido BRL','Com NF','Com patrimonio'],';');
+        foreach($r['linhas'] as $l) fputcsv($out,$safe([$l['processo_data'],$l['origem_item_id'],$l['processo_id'],$l['produto'],$l['requisitante'],$l['cc_sga'],$l['cc_nome'],$l['base_pedido'],$l['vinculos_nf_positivos']>0?'Sim':'Nao',$l['tem_patrimonio']?'Sim':'Nao']),';');
+        fclose($out);
+    }
     private static function exportProjeto(int $id): void {
         $periodo=Periodo::ler($_GET); $d=Projetos::detalhe($id,$periodo);
         header('Content-Type: text/csv; charset=UTF-8');
@@ -208,7 +344,7 @@ final class Web {
         fclose($out);
     }
     private static function export(): void {
-        header('Content-Type: text/csv; charset=UTF-8'); header('Content-Disposition: attachment; filename="patrimonios-salinas-ti.csv"');
+        header('Content-Type: text/csv; charset=UTF-8'); header('Content-Disposition: attachment; filename="patrimonios-salinas.csv"');
         $out=fopen('php://output','w'); fwrite($out,"\xEF\xBB\xBF");
         fputcsv($out,['Empresa','Patrimonio','Produto','Serie','Situacao','Local','Centro de custo','Responsavel'],';');
         $rows=DB::all('SELECT a.empresa_patrimonio,a.patrimonio,p.nome,a.serie,a.situacao,l.nome local,c.nome cc,r.nome responsavel FROM ativos a JOIN produtos p ON p.id=a.produto_id LEFT JOIN locais l ON l.id=a.local_atual_id LEFT JOIN centros_custo c ON c.id=a.centro_custo_atual_id LEFT JOIN responsaveis r ON r.id=a.responsavel_atual_id');

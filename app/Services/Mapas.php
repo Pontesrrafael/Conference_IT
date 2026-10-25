@@ -30,7 +30,7 @@ final class Mapas {
         }catch(\Throwable $e){@unlink($original);@unlink($png);throw $e;}
     }
     public static function converter(string $source,string $png): array {
-        $python=getenv('MAP_PYTHON')?:'C:/Users/rafae/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe';
+        $python=(string)getenv('MAP_PYTHON'); // sem caminho fixo de máquina de desenvolvimento: definir MAP_PYTHON no .env
         if(!is_file($python))throw new RuntimeException('Leitor de GeoTIFF indisponível. Configure MAP_PYTHON no ambiente local.');
         set_time_limit(180);
         $proc=proc_open([$python,ROOT.'/bin/geotiff.py',$source,$png],[0=>['pipe','r'],1=>['pipe','w'],2=>['file',ROOT.'/storage/logs/geotiff.log','a']],$pipes,ROOT,null,['bypass_shell'=>true]);

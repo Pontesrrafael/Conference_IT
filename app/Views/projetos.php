@@ -5,7 +5,7 @@ $states=['planejado'=>'Planejado','em_andamento'=>'Em andamento','pausado'=>'Pau
 $projectForm=static function(?array $edit) use($ccs,$states): void { ?>
 <form action="/projeto-salvar" method="post" class="stack project-form"><?=csrf()?>
 <input type="hidden" name="projeto_id" value="<?=e($edit['id']??'')?>"><input type="hidden" name="versao" value="<?=e($edit['versao']??'')?>">
-<div class="project-fields"><label>Código<input name="codigo" required maxlength="40" value="<?=e($edit['codigo']??'')?>" placeholder="Ex.: TI-2026-01"></label><label>Nome do projeto<input name="nome" required maxlength="180" value="<?=e($edit['nome']??'')?>"></label></div>
+<div class="project-fields"><label>Código<input name="codigo" required maxlength="40" value="<?=e($edit['codigo']??'')?>" placeholder="Ex.: PRJ-2026-01"></label><label>Nome do projeto<input name="nome" required maxlength="180" value="<?=e($edit['nome']??'')?>"></label></div>
 <label>Descrição<textarea name="descricao" maxlength="5000"><?=e($edit['descricao']??'')?></textarea></label>
 <div class="project-fields"><label>Responsável pelo projeto<input name="gestor" maxlength="180" value="<?=e($edit['gestor']??'')?>"></label><label>Centro de custo de referência<select name="cc_id"><?=options($ccs,$edit['centro_custo_id']??null)?></select></label></div>
 <div class="project-fields"><label>Situação<select name="status"><?php foreach($states as $v=>$text): ?><option value="<?=$v?>" <?=($edit['status']??'planejado')===$v?'selected':''?>><?=$text?></option><?php endforeach; ?></select></label><label>Orçamento em R$ (opcional)<input name="orcamento" inputmode="decimal" placeholder="Ex.: 50000,00 — sem milhar" value="<?=e($edit['orcamento']??'')?>"></label></div>

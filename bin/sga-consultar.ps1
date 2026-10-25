@@ -10,10 +10,10 @@ try {
     $builder['Initial Catalog'] = $request.config.banco
     $builder['User ID'] = $request.config.usuario
     $builder['Password'] = $request.config.senha
-    $builder['Encrypt'] = $true
+    $builder['Encrypt'] = if ($null -eq $request.config.usar_ssl) { $true } else { [bool]$request.config.usar_ssl }
     $builder['TrustServerCertificate'] = [bool]$request.config.confiar_certificado
     $builder['Connect Timeout'] = 12
-    $builder['Application Name'] = 'Salinas TI - leitura'
+    $builder['Application Name'] = 'Salinas Gestao de Ativos - leitura'
     $connection = New-Object System.Data.SqlClient.SqlConnection($builder.ConnectionString)
     $connection.Open()
     $command = $connection.CreateCommand()

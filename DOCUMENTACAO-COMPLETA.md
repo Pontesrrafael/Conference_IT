@@ -1,12 +1,14 @@
-# Salinas TI — documentação completa e estado atual
+# Salinas Gestão de Ativos — documentação completa e estado atual
 
-**Revisão da documentação e publicação:** 20/10/2026.
+> Antigo **Salinas TI**. Desde 23/10/2026 a aplicação é de uso geral (ativos de qualquer área): as telas não falam mais em "parque de TI". O nome exibido vem de `APP_NAME` no `.env`; o valor antigo "Salinas TI" é mostrado como **Salinas Gestão de Ativos**. Repositório, pasta, banco (`salinas_ti`) e nomes internos do código continuam os mesmos para não quebrar a instalação.
+
+**Revisão da documentação:** 23/10/2026, 14:45 (Horário de Mato Grosso – UTC-4), com verificação no navegador da instalação local (seção 11.4). Inclui requisitantes e centros de custo configuráveis, telas filtradas pelo escopo atual (seção 6.5) e a verificação geral (seção 11.3). Histórico na seção 15.
 
 **Referência do levantamento:** 19/10/2026, 23:18:58, horário de Cuiabá (UTC−04:00). Os totais operacionais abaixo são uma fotografia dessa consulta e mudam com o uso.
 
 ## 1. Objetivo e escopo
 
-Organizar o parque de TI da Salinas Gold, saber quanto custa o parque cadastrado, identificar itens fora de uso e acompanhar o custo das iniciativas e projetos. Os dados de compras são lidos do Minerion SGA; o inventário físico, os rateios e os apontamentos geográficos são mantidos em banco próprio.
+Organizar os ativos da Salinas Gold, de qualquer área, saber quanto custam os ativos cadastrados, identificar itens fora de uso e acompanhar o custo das iniciativas e projetos. Os dados de compras são lidos do Minerion SGA; o inventário físico, os rateios e os apontamentos geográficos são mantidos em banco próprio.
 
 Fora de uso significa **estoque, manutenção ou baixados**. A aplicação não faz descoberta de rede nem monitoramento de comunicação dos equipamentos. Situação aguardando conferência é desconhecida e não é classificada como fora de uso.
 
@@ -22,7 +24,7 @@ A referência de estrutura é o [Salinas Access Gate](https://github.com/Pontesr
 | DocumentRoot | `D:\Apps_SG\Est_Sg\public` |
 | Banco da aplicação | MariaDB `salinas_ti`, em `127.0.0.1:3308` |
 | Arquivos físicos do MariaDB | `D:\Apps_SG\Est_Sg\storage\mariadb` |
-| Configuração privada | `.env` e `storage/sga.json` |
+| Configuração privada | `.env`, `storage/sga.json`, `storage/requisitantes.json` e `storage/centros-custo.json` |
 | Acesso inicial gerado | `ACESSO-LOCAL.txt` — privado e fora do Git |
 | Mapas originais e prévias | `storage/mapas` — privado e fora do Git |
 | Backups e logs | `storage/backups` e `storage/logs` |
@@ -92,13 +94,22 @@ app/
     PatrimoniosSga.php           conciliação do imobilizado com patrimônios
     Projetos.php                cadastro, rateios, orçamento e custos
     DocumentosCompra.php        busca por RC / ordem e apontamento em lote
+    Requisitantes.php           escopo de requisitantes (storage/requisitantes.json)
+    CentrosCusto.php            escopo por centro de custo, filhos e limites (storage/centros-custo.json)
+    Relatorios.php              relatórios de gastos por CC e período, CCs novos + sincronização
+    RelatorioPdf.php            layout do relatório em PDF no timbrado oficial (logotipo, faixa lateral, rodapé com endereços)
+    Pdf.php                     gerador de PDF sem dependências (Helvetica/WinAnsi, PNG, polígonos, texto vertical)
+    IndicadoresTi.php           Visão Executiva de TI: metas, medições, CSV, riscos e dados do parque
+    GraficoSvg.php              gráficos SVG no servidor (linhas, rosca, barras) compatíveis com a CSP
+  Assets/logo-salinas-gold-pdf.png  cópia do logotipo oficial para o PDF (bin/gerar-logo-pdf.py)
+  Assets/pin-endereco-pdf.png       marcador de endereço do timbrado para o PDF (bin/gerar-logo-pdf.py)
     Periodo.php                 filtros de datas
     Parque.php                  custos e situação do parque
     Mapas.php                   uploads, áreas, vínculos e GeoJSON
     ProjectXml.php              exportação Microsoft Project MSPDI
   Views/                        telas PHP
 database/
-  001_estrutura.sql ... 006_mapas.sql
+  001_estrutura.sql ... 007_indicadores_ti.sql
   queries/                      SELECTs da origem SQL Server
 bin/                            instalação, operação, conversão e verificações
 public/
@@ -124,7 +135,9 @@ Não há cadastro completo de usuários pela interface nem SSO/Active Directory.
 
 ### 6.2 Integração e compras SGA
 
-O escopo padrão usa os requisitantes **756, 772, 316 e 1318**. O código 772 foi confirmado para Fernando Silva; 722 está excluído. Coletas pontuais por documento podem trazer todos os itens do documento solicitado, inclusive de outros requisitantes, e não são invalidadas apenas por estarem fora dos quatro códigos na sincronização geral.
+O escopo inicial usa os requisitantes **756, 772, 316 e 1318**. A partir da revisão de 20/10/2026, o administrador pode adicionar ou remover IDs (FUNCOD) em **Integração → Parâmetros da consulta**; a lista fica em `storage/requisitantes.json` e é aplicada às consultas de compras e patrimônios pelo marcador `{{REQUISITANTES_SGA}}`. Detalhes em [Requisitantes SGA](REQUISITANTES-SGA.md). O código 772 foi confirmado para Fernando Silva; 722 está excluído. Coletas pontuais por documento podem trazer todos os itens do documento solicitado, inclusive de outros requisitantes, e não são invalidadas apenas por estarem fora dos quatro códigos na sincronização geral.
+
+**Escopo por centro de custo (20/10/2026).** Além dos requisitantes, o administrador pode incluir centros de custo do SGA. A consulta traz a linha de compra cujo requisitante **ou** cujo CC da linha (`IPCOCC`) está configurado, com opção de incluir os CCs filhos pelo caminho `CCSTCOD`. Os limites são 300 CCs efetivos e 5.000 linhas de outros requisitantes. Detalhes, proteções e validação no SGA real estão em [Centros de custo SGA](CENTROS-CUSTO-SGA.md).
 
 Relações principais verificadas na origem:
 
@@ -159,13 +172,63 @@ Registros de imobilizado são conciliados com as compras e com a empresa do patr
 
 Uma nova coleta preserva as decisões e situações físicas locais. O custo do bem prioriza o valor de aquisição do imobilizado; quando não existe, usa estimativa unitária pelo pedido/quantidade, identificada na tela. Ausência de custo não é silenciosamente tratada como um custo conhecido igual a zero.
 
-### 6.5 Parque e custos
+### 6.5 Ativos e custos (antigo Parque e custos)
+
+**Compras do escopo no Painel (20/10/2026, 10:40).** O Painel ganhou o bloco **Compras do escopo atual**, com:
+- total dos pedidos não cancelados, **com ou sem patrimônio**;
+- total com NF positiva;
+- **compras sem patrimônio** (linhas sem ativo vinculado);
+- valor dos **bens do imobilizado sem número**;
+- uma tabela por origem (cada requisitante e cada centro de custo).
+
+O filtro **Centro de custo / origem**, na barra de período, restringe às compras, aos ativos e aos bens sem número de um CC adicionado ou de um requisitante. Para CCs com filhos, a aplicação guarda a lista dos **CCs efetivos de cada entrada**, recalculada a cada sincronização. Assim o filtro é exato também nos ativos e patrimônios. Os totais de parque, compras e projetos podem representar as mesmas aquisições: **não devem ser somados**. Referência no SGA para o CC 1290: 21 linhas, 20 com NF, R$ 115.085,10 no pedido (R$ 114.845,10 com NF).
+
+**Escopo atual × histórico (20/10/2026, 09:25).** O painel (`/`), **Patrimônios** (`/ativos`), **Compras** (`/compras`) e as pendências de associação mostram por padrão **somente** o escopo atual da consulta. Isso inclui as compras dos requisitantes e centros de custo configurados em Integração, de **qualquer categoria** (não só TI). Para ver também o que foi importado de requisitantes ou CCs removidos, escolha **Todo o histórico importado** no filtro (`?escopo=todos`). Bens sem compra de origem sempre aparecem. Projetos e rateios não são filtrados pelo escopo, porque o vínculo é explícito. O histórico nunca é apagado.
 
 O painel separa alocados em uso, estoque/manutenção/baixados, baixados fora do total principal e aguardando conferência. O total principal do parque exclui baixados e inclui os bens conhecidos aguardando conferência, com essa cobertura explícita.
 
 O filtro de datas não altera indevidamente o total global cadastrado do parque. Ele filtra a seção de compras/equipamentos do período e os custos dos projetos pela data do processo SGA. A situação mostrada é a atual; não é uma reconstrução histórica da posição do bem naquela data.
 
 **Custos de parque e custos de projetos podem representar as mesmas aquisições. Não devem ser somados.** Materiais de estoque controlados por quantidade também não são automaticamente somados como equipamentos do parque.
+
+### 6.5.1 Relatórios de gastos por centro de custo
+
+Menu **Relatórios** (`/relatorios`). Mostra gastos por centro de custo e por período, com:
+- seleção múltipla dos CCs adicionados;
+- campo para **informar códigos novos**. Ao gerar, a aplicação confere todos os códigos no SGA, inclui os novos no escopo e **sincroniza com o banco do SGA** antes de montar o relatório;
+- resumo sem dupla contagem;
+- tabela por CC (pedido, com NF, sem patrimônio, patrimônios e bens sem número);
+- evolução mensal;
+- linhas de compra;
+- exportação CSV e **PDF no timbrado oficial da Salinas** (logotipo sobre fundo branco, faixa amarela lateral com razão social e CNPJ, rodapé com endereços e listras; A4 paisagem, paginado, gerado no servidor sem bibliotecas).
+
+Detalhes, permissões e referência de valores em [Relatórios](RELATORIOS.md).
+
+### 6.5.2 Indicadores de TI · Visão Executiva
+
+Menu **Indicadores → Visão Executiva de TI** (`/indicadores`), no padrão dos Indicadores do Salinas Access Gate. Espelha a página Visão Executiva do *SGM | Dashboard de TI* (Power BI):
+- **10 cartões com meta** (verde quando atende, vermelho quando não atende), com a variação em relação ao período anterior;
+- **parque e compras do escopo atual**: ativos, aguardando conferência, patrimônios ambíguos, bens sem número, compras e saúde da sincronização SGA;
+- **gráficos**: disponibilidade diária, controles por status, riscos por nível e parque por situação;
+- **tabela** de riscos altos em aberto;
+- **Modo TV** (`?tv=1`) com relógio e tela cheia;
+- **atualização automática** a cada 1, 5 ou 15 minutos (só o conteúdo).
+
+Nesta etapa, os valores do Zabbix, Microsoft 365, controles, licenças e rádios entram por lançamento manual ou CSV, com conferência de tudo ou nada, em **Dados dos indicadores** (admin e operador_ti). Só o administrador altera metas. Tudo fica na auditoria. Detalhes, códigos e regras em [Indicadores de TI](INDICADORES-TI.md).
+
+### 6.5.3 Tema claro/escuro e Modo TV
+
+- **Tema da interface:** o seletor **☀ Claro · ◐ Automático · ☾ Escuro** aparece no topo de todas as telas, no login, nas mensagens de erro e no Modo TV.
+  - O tema muda na hora, sem recarregar a página (`assets/tema.js`).
+  - A escolha fica guardada **por navegador** no cookie `tema`, por 1 ano. Assim, o telão pode ficar escuro e a estação, clara.
+  - **Automático** segue o sistema operacional.
+  - Sem JavaScript, os links `/tema?valor=…&voltar=…` gravam a escolha e voltam à mesma página. O retorno aceita só caminhos locais, sem redirecionamento aberto.
+  - Como funciona no CSS: cada bloco escuro existe em duas versões, `@media(prefers-color-scheme:dark){:root:not([data-tema="claro"]) …}` para o automático e `:root[data-tema="escuro"] …` para a escolha manual. Regras escuras novas devem seguir esse padrão.
+- **Modo TV** (`?tv=1`), para o telão da sala de TI:
+  - **Ativos e custos** (`/?tv=1`) e **Visão Executiva de TI** (`/indicadores?tv=1`).
+  - Layout comum (`Views/tv.php`, `assets/tv.css` e `assets/tv.js`), sem menu lateral: cabeçalho verde com o logotipo, título, relógio no Horário de Mato Grosso – UTC-4, seletor de tema, botão de tela cheia e botão de saída.
+  - Os filtros ficam recolhidos em "Filtros e atualização".
+  - **Atualização:** o Parque recarrega a página a cada 1, 5 (padrão) ou 15 minutos. A Visão Executiva atualiza só os dados, sem recarregar a página. Com a aba em segundo plano, a atualização pausa.
 
 ### 6.6 Projetos e rateio
 
@@ -245,7 +308,7 @@ Views: `vw_compras_custos` e `vw_apontamentos_custos`. Valores gerenciais usam D
 
 | Rota | Finalidade |
 |---|---|
-| `/` | Parque e custos |
+| `/` | Ativos e custos |
 | `/projetos`, `/projeto?id=...` | Lista e painel de projetos |
 | `/compras` | Triagem e conferência das compras |
 | `/ativos`, `/estoque` | Patrimônios e materiais |
@@ -253,6 +316,9 @@ Views: `vw_compras_custos` e `vw_apontamentos_custos`. Valores gerenciais usam D
 | `/historico` | Movimentos e auditoria |
 | `/cadastros` | Locais, centros de custo e responsáveis |
 | `/integracao` | Configuração e sincronização, apenas administrador |
+| `/sga-requisitante`, `/sga-requisitante-remover` | Inclui/remove requisitante do escopo (POST, admin, auditoria) |
+| `/sga-centro-custo`, `/sga-centro-custo-remover` | Inclui/remove centro de custo do escopo (POST, admin, auditoria) |
+| `/relatorios`, `/relatorio-gerar`, `/relatorio-exportar`, `/relatorio-pdf` | Relatório por CC e período; geração com CCs novos e sincronização (POST, admin); CSV; PDF |
 | `/conta` | Troca da própria senha |
 | `/saude` | Saúde do acesso ao banco local |
 | `/projeto-exportar`, `/projeto-project` | CSV filtrado e Project XML integral |
@@ -275,6 +341,20 @@ O instalador usa a instância MariaDB dedicada que o script prepara; não deve s
 
 O runtime Python da máquina de origem não é portátil nem incluído no Git. Defina `MAP_PYTHON` no novo `.env` antes de usar mapas. Os scripts locais têm caminhos XAMPP e portas definidos no código; adaptar para Linux, serviço Windows, Apache/IIS/Nginx ou outro layout exige homologação específica.
 
+**Senha do usuário do banco.** O `instalar.php` gera uma senha aleatória para `salinas_ti` e grava no `.env`. Para trocar:
+- comando: `C:\xampp\php\php.exe bin\definir-senha-db.php`, que gera uma senha de 64 caracteres;
+- opção `--informar`: você digita a senha (16 a 100 caracteres, com maiúsculas, minúsculas e números);
+- opção `--mostrar`: exibe a nova senha uma vez.
+
+O que o script faz:
+1. confere a senha atual;
+2. faz backup do `.env` em `storage/backups`;
+3. altera a senha no MariaDB e no `.env`;
+4. testa a conexão. Se algo falhar depois da troca, volta para a senha anterior;
+5. registra a troca na auditoria, sem a senha.
+
+Depois, reinicie a aplicação (`parar.ps1` e `iniciar.ps1`). Apague o backup do `.env` quando não precisar mais.
+
 O servidor PHP embutido é para testes. Ele pode ficar ocupado durante uma importação ou conversão; ainda não existe fila/worker para processamento de mapas grandes ou sincronizações.
 
 ## 10. Backup, restauração e atualização
@@ -284,7 +364,7 @@ O servidor PHP embutido é para testes. Ele pode ficar ocupado durante uma impor
 Além do dump, guardar em local privado e controlado:
 
 - `.env`, especialmente `APP_KEY`, necessário para decifrar a conexão.
-- `storage/sga.json` e, quando necessário para a instância local, `storage/maria-admin.json`.
+- `storage/sga.json`, `storage/requisitantes.json`, `storage/centros-custo.json` (escopo da consulta) e, quando necessário para a instância local, `storage/maria-admin.json`.
 - `storage/mapas` com TIFFs e PNGs.
 - Configurações, versão exata do código e dependências geográficas.
 - Evidências internas, se a organização decidir mantê-las.
@@ -305,7 +385,8 @@ Atualizações de código devem preservar `.env`, acesso inicial, banco, mapas, 
 - Projetos, rateio 60/40, limite 100%, rollback de lote, edição concorrente e orçamento.
 - Associação patrimonial, ambiguidades, conferência e preservação de estado local.
 - Períodos rápidos, data final inclusiva, intervalos inválidos, projeto vazio e custos globais.
-- RC/processo, importação pontual fora dos quatro requisitantes e não duplicação RC/ordem.
+- RC/processo, importação pontual fora do escopo de requisitantes e não duplicação RC/ordem.
+- Requisitantes configuráveis (`bin/verificar-requisitantes.php`, portátil): IDs inválidos/inexistentes, duplicidade, remoção seletiva, bloqueio do último ID e aplicação nas consultas.
 - GeoTIFF WGS84 e SIRGAS/UTM, rejeição de TIFF sem coordenadas e polígonos inválidos.
 - Upload HTTP multipart, sessão, CSRF, imagem privada, vínculos de projeto e exportação GeoJSON.
 - Interação no navegador: desenho de três vértices por teclado e zoom.
@@ -313,11 +394,102 @@ Atualizações de código devem preservar `.env`, acesso inicial, banco, mapas, 
 
 As verificações completas criam bancos temporários com nomes exclusivos, não usam o banco operacional como área de teste e descartam apenas suas próprias bases. A conta web não tem DDL; as rotinas CLI de teste usam a credencial administrativa privada para criar essas bases. Elas não devem ser executadas contra uma instalação cujo estado/configuração não foi conferido.
 
+- Centros de custo configuráveis (`bin/verificar-centros-custo.php`, portátil): sentinela sem CC, filhos por `CCSTCOD`, limite de volume sem efeito colateral, novo filho na sincronização, importação e patrimônio pelo CC, CC 0 recusado e consultas somente leitura.
+
 ### 11.2 O que o clone permite testar
 
-`bin/verificar-publicacao.php` é um teste portátil sem banco nem rede. Os testes completos dependem de arquivos internos de `evidencias/`, além da instância MariaDB privada. Esses arquivos são excluídos da publicação para não divulgar compras, patrimônios e dados da empresa.
+`bin/verificar-publicacao.php`, `bin/verificar-requisitantes.php` e `bin/verificar-centros-custo.php` são testes portáteis sem banco nem rede. `bin/verificar-ponta-a-ponta.php` precisa só da instância MariaDB da instalação: cria um banco temporário e usa dados sintéticos, sem evidências privadas. Os testes completos dependem de arquivos internos de `evidencias/`, além da instância MariaDB privada. Esses arquivos são excluídos da publicação para não divulgar compras, patrimônios e dados da empresa.
 
 Exemplos de evidências locais necessárias: `coleta-minerion.json`, `patrimonios-identificados.json`, `custos-imobilizado.json` e documento de processo. O teste Project usa também o XSD oficial da Microsoft; o teste de mapas usa fixtures sintéticas criadas por `bin/criar-geotiff-teste.py`. O repositório não deve alegar que esses testes completos são autossuficientes em um clone limpo.
+
+
+### 11.3 Verificação geral de 20/10/2026
+
+Executada num ambiente de análise isolado (PHP 8.3, MariaDB 10.11, Python 3.13 com Rasterio). Ali o código foi instalado do zero pelo instalador da aplicação. Nenhum dado operacional foi usado: o SGA real foi consultado somente em leitura, pelo Metabase.
+
+| Verificação | Resultado |
+|---|---|
+| Lint de todos os PHP e do JavaScript | Sem erros |
+| Instalador `bin/instalar.php` em banco vazio | 6 migrações aplicadas, usuário inicial gerado |
+| `verificar-publicacao` | OK |
+| `verificar-requisitantes` | OK |
+| `verificar-centros-custo` (novo) | OK |
+| `verificar-relatorio-pdf` (novo, portátil) | OK |
+| `verificar-indicadores` (novo, portátil) | OK |
+| `verificar-ponta-a-ponta` (novo, HTTP) | **69 a 72 verificações OK** em três cenários de escopo: padrão, 768 + CC 1290 e só CC 1290. Inclui escopo atual × histórico em ativos, compras, painel e bens sem número, e o filtro por origem: saúde, cabeçalhos CSP/nosniff, CSRF, login e bloqueio de senha errada, 14 telas, 404, escape de HTML, cadastro com auditoria, projeto, rateio 60% e bloqueio acima de 100%, custo truncado (R$ 1.800,60), triagem, CSV com BOM e proteção contra fórmula, Project XML, mapas (upload GeoTIFF, prévia PNG, área, polígono cruzado recusado, vínculo e GeoJSON), perfil consulta sem escrita e log do PHP sem avisos |
+| Sincronização com escopo por CC em MariaDB | Ausência marcada só no escopo combinado; coleta por documento preservada; linha fora do escopo recusada |
+| SQL novo no SGA real (Metabase) | Compras e patrimônios executaram; contagens conferidas (ver guia de CC) |
+| Revisão de segurança do código | SQL dinâmico só com listas fechadas ou parâmetros; uploads com extensão, tamanho e assinatura validados; saídas HTML escapadas; erros de banco não expostos |
+
+**Corrigido nesta revisão:**
+- A sincronização validava a lista bruta de patrimônios. Agora valida a lista já filtrada pelo escopo e aborta antes de importar as compras.
+- O escopo era lido a cada linha importada. Agora é lido uma vez por importação.
+- `bin/coletar.php` falhava porque carregava só `Minerion.php`. Agora usa o `bootstrap`.
+- O caminho padrão do Python para mapas apontava para a máquina onde o código foi gerado (`C:/Users/rafae/...`). Agora exige `MAP_PYTHON` no `.env`, que a instalação local já define.
+
+**Não executado:** as 8 suítes completas (`verificar-fluxos`, `-projetos`, `-parque`, `-periodos`, `-patrimonios`, `-documentos`, `-mapas`, `-project`). Elas dependem de `evidencias/coleta-minerion.json`, `patrimonios-identificados.json`, `documento-processo-29968.json`, `mspdi_pj12.xsd` e `exemplo-ms-project-teste.xml`, que **não existem na instalação atual**. A pasta `evidencias` local tem apenas os 3 TIFFs sintéticos. Essas suítes também comparam totais fixos (ex.: 1.441 linhas), então só valem com a coleta original.
+
+### 11.4 Verificação no navegador da instalação local (20/10/2026, 09:20)
+
+Rotina adotada: ao fim de cada solicitação, a instalação `http://localhost:2288` é aberta no navegador, a sincronização **Consultar SGA e sincronizar agora** é executada e as telas são conferidas.
+
+| Item | Resultado observado |
+|---|---|
+| Escopo configurado | Requisitante **768** (TULIO SOARES REIS); nenhum centro de custo |
+| Sincronização | Concluída: **196 compras**; patrimônios: **3 associados, 12 ambíguos, 9 sem número** |
+| Patrimônios (`/ativos`), escopo atual | **3 ativos**, todos aguardando conferência, **R$ 5.028,79** (ex.: controlador de videowall, rack outdoor) |
+| Patrimônios, todo o histórico | **70 ativos**, R$ 159.717,89 (67 do escopo anterior + 3 do 768) |
+| Compras (`/compras`, todas), escopo atual × histórico | **196** × **1.638** linhas |
+| Painel (`/`) | Rótulo "ESCOPO ATUAL DA CONSULTA"; R$ 5.028,79; 3 bens não baixados |
+| Conexão SQL Server | Funcionando **sem SSL** (configuração salva às 08:20) |
+
+Os 12 casos ambíguos do 768 aparecem em **Pendências de associação** e precisam ser conferidos e escolhidos manualmente.
+
+**09:38 — escopo 768 + CC 1290 (com filhos).** A sincronização funcionou nas duas execuções (09:36 e 09:39): **217 compras** (196 do 768 + 21 do CC 1290), 71 com NF; patrimônios **3 associados, 12 ambíguos, 16 sem número**. Em Patrimônios continuam 3 ativos porque **os 7 bens do imobilizado ligados ao CC 1290 estão sem número de patrimônio no SGA** (rack 19", cabos ópticos AS120 24FO, DIO 24FO, cordão óptico, cruzeta e fita de aço). Conferido no SGA: `IBAINUMPAT=0` e `IBAINUMPATST` vazio. Por regra, a aplicação não cria ativo sem número.
+
+**09:55 — escopo só CC 1290 (768 removido pela tela, agora permitido).** Sincronização: **21 compras; patrimônios 0 associados, 0 ambíguos, 7 sem número**. Compras SGA mostra 21 linhas, cada uma com "No escopo por: centro de custo 1290". Patrimônios mostra 0 ativos no escopo e os 7 bens sem número listados.
+
+**10:45 — escopo CC 1290 (com filhos) + CC 802, Painel com filtro.** Sincronização: **421 compras** (21 do 1290 + 400 do 802); patrimônios **18 associados, 4 ambíguos, 36 sem número**. No Painel filtrado por **CC 1290**:
+- compras: **R$ 115.085,10** no pedido e **R$ 114.845,10** com NF (20 de 21 linhas), **iguais ao SGA**;
+- compras sem patrimônio: R$ 115.085,10;
+- bens do imobilizado sem número: **R$ 79.784,62** (7 bens);
+- custo do parque: R$ 0,00, porque o CC não tem patrimônio numerado.
+
+Os 18 ativos associados vêm do CC 802.
+
+**10:55 — Relatórios.** **Gerar relatório** com sincronização (SGA: 421 compras no escopo). O relatório do CC 1290 em todo o histórico deu **R$ 115.085,10** no pedido e **R$ 114.845,10** com NF, **iguais ao SGA**. Seleção múltipla 1290 + 802 no **ano atual**: **R$ 158.930,37** em 86 linhas, sendo 1290 = R$ 87.305,10 (13 linhas) e 802 = R$ 71.625,27 (73 linhas; patrimônios R$ 21.111,09 em 9 bens). A soma por CC fecha com o total geral, porque não há sobreposição entre os dois.
+
+**11:20 — PDF.** Escopo: CCs 1290 (com filhos), 802, 1337 e 9. Sincronização: **2.665 compras**; patrimônios **37 associados, 18 ambíguos, 94 sem número**. PDF do CC 1290 gerado pela instalação local:
+- `application/pdf`, 145 KB, 2 páginas, arquivo íntegro e logotipo incorporado uma vez;
+- valores R$ 115.085,10 (pedido) e R$ 114.845,10 (com NF), iguais ao SGA;
+- rodapé "Página 1 de 2" e "Página 2 de 2".
+
+Na transferência para o computador, o PNG do logotipo recebeu um bloco extra de metadados de procedência (`caBX`). Os dados da imagem são idênticos (IDAT conferido) e o gerador ignora esse bloco.
+
+**14:00 — PDF no timbrado oficial.** Escopo atual: CCs 802 e 1290 (com filhos), sem requisitantes. Sincronização às 13:57: **421 compras**; patrimônios **18 associados, 4 ambíguos, 36 sem número**. PDF do CC 1290 (todo o histórico) baixado da instalação:
+- `application/pdf`, 150 KB, 2 páginas, `%%EOF` presente;
+- 2 imagens incorporadas uma vez cada (logotipo e marcador de endereço);
+- "SALINAS GOLD MINERAÇÃO · CNPJ: 03.212.955/0001-09" e os dois endereços em **todas** as páginas;
+- faixa verde antiga do cabeçalho ausente;
+- valores R$ 115.085,10 (pedido) e R$ 114.845,10 (com NF), iguais ao SGA.
+
+O Chrome abre o PDF no visualizador interno, que a automação não consegue capturar em imagem. A conferência visual foi feita na renderização do mesmo gerador com dados de exemplo.
+
+**15:15 — Visão Executiva de TI.** Sincronização às 14:22: **421 compras**; patrimônios **18 associados, 4 ambíguos, 36 sem número**. Na instalação:
+- `/indicadores` abriu com o aviso da migração 007 pendente (a instalação ainda não foi reiniciada pelo `iniciar.ps1`);
+- bloco Parque e compras: 18 ativos no parque (R$ 48.024,74), 18 aguardando conferência, 4 ambíguos, 36 bens sem número (R$ 166.076,86), R$ 3.071,80 em compras nos últimos 30 dias e sincronização "concluída · 421 linhas · há 0 h";
+- Modo TV e a tela Dados dos indicadores também abriram; a tela de dados pede a migração.
+
+Ajuste feito nessa verificação: "Patrimônios ambíguos" contava todo o histórico (22). Agora conta só o escopo atual (4), como a sincronização.
+
+**15:45 — Tema e Modo TV.** Sincronização às 14:43: **421 compras**; patrimônios **18 associados, 4 ambíguos, 36 sem número**. Na instalação:
+- `/?tv=1` com o tema escuro: Parque e custos com R$ 48.024,74 e 18 patrimônios não baixados, além do relógio e do seletor de tema no cabeçalho;
+- `/indicadores` com o tema claro: o seletor marcou "Claro";
+- ao final, o tema voltou para **Automático**.
+
+Ajustes feitos depois dessa verificação:
+- O painel **Atualizar compras** dizia só "Consulta os requisitantes configurados: 768", o que dava a impressão de que o CC fora ignorado. Agora mostra também os CCs.
+- A tela **Patrimônios** ganhou a lista **Bens do imobilizado sem número de patrimônio**, filtrada pelo escopo, com descrição, NF, valor, compra e CC do bem.
 
 ## 12. Pendências e limites de homologação
 
@@ -330,11 +502,20 @@ Exemplos de evidências locais necessárias: `coleta-minerion.json`, `patrimonio
 | Mapas reais | Enviar imagem georreferenciada da mineração/escritório e conferir a precisão das áreas. |
 | Microsoft Project | Fazer abertura manual do XML e revisar o cronograma no aplicativo desktop. |
 | Regras fiscais | Homologar significado dos status e tratamento de devoluções; não calcular saldo líquido fiscal por suposição. |
-| Acesso por CC | Não há escopo por centro de custo nas consultas; planejar se necessário antes de distribuir acesso amplo. |
+| Acesso por CC | A **consulta** já pode ser filtrada por CC (seção 6.2), mas o **acesso** dos usuários ainda não é isolado por CC. Planejar antes de distribuir acesso amplo. |
 | Usuários e autenticação | Cadastro completo/SSO/AD e políticas organizacionais ainda não implementados. |
 | Produção | Substituir servidor de teste, homologar TLS, certificados, conta SQL de leitura, serviço e processos em segundo plano. |
 | Backup | Definir retenção, proteção, agendamento e ensaiar restauração do banco e imagens. |
-| Testes distribuídos | Criar dataset integral sintético se for necessário rodar toda a suíte fora do ambiente privado. |
+| Testes distribuídos | As evidências privadas das 8 suítes completas não estão na instalação atual. Recuperar de um backup ou gerar dataset sintético e trocar os totais fixos por totais calculados. `verificar-ponta-a-ponta` já cobre o fluxo principal sem evidências. |
+| Escopo por CC | Validar na interface com a VPN: incluir 1241, sincronizar e conferir as 110 linhas extras. Definir os CCs oficiais da TI. |
+| Bens sem número no SGA | 16 bens do escopo estão no imobilizado sem número de patrimônio (7 do CC 1290, rede óptica). Pedir à Contabilidade/Patrimônio o registro dos números e sincronizar de novo. |
+| Sincronização com SSL | Em 20/10 a ponte SQL Server falhou com "cadeia de certificação não confiável" e a conexão foi salva **sem SSL**. Para homologar: reativar SSL e marcar "Confiar no certificado" (teste) ou instalar a CA do servidor SQL (produção). |
+| PDF no timbrado | Validar o layout com a Comunicação/Marketing (A4 paisagem e Helvetica, enquanto o modelo Word é retrato com Author/Poppins). Se o timbrado mudar, atualizar `RelatorioPdf::ENDERECOS`/`CNPJ` e rodar `bin/gerar-logo-pdf.py`. |
+| Indicadores de TI | Rodar o **iniciar.ps1** para aplicar a migração 007. Lançar ou importar os valores atuais do Power BI e o registro de riscos. Próximas etapas: demais páginas (Segurança M365, Disponibilidade & Rede etc.) e coleta direta e agendada por API (Zabbix, UniFi, Microsoft Graph, NinjaOne) em modo leitura. |
+| Mapas e áreas → Prédios | **Próxima etapa, pedida em 20/10:** redesenhar a aba como **Prédios**, sem novos GeoTIFFs. Fica só o apontamento de itens e custos por prédio/área. A georreferência para o Zabbix sai do escopo. |
+| Repositório público | **Decisão pendente.** Antes de tornar o GitHub público é preciso: (1) tirar do repositório a fonte Author, cuja licença Fontshare proíbe publicar os arquivos em servidor público; (2) tirar dos documentos e do histórico os valores reais de compras, os CCs e os projetos; (3) ter autorização da empresa para os logotipos e o timbrado. Caminho recomendado: um repositório público novo, limpo e sem histórico. |
+| Testes antigos com "Syntax error" | `verificar-parque`, `-periodos`, `-fluxos` e `-project` leem arquivos privados de `evidencias/`, que não existem nesta instalação. O "Syntax error" é o JSON vazio. O `verificar-ponta-a-ponta` já cobre esses fluxos com dados sintéticos. |
+| Senha do banco | Rodar `bin/definir-senha-db.php` na instalação, reiniciar a aplicação e guardar a senha no gerenciador de senhas, se usar `--mostrar`. |
 
 Esse estado é uma base funcional para testes, não comprovação de aceite de produção. Funcionalidade implementada e teste sintético aprovado não substituem conferência da rede, dos dados físicos ou das regras da operação.
 
@@ -348,6 +529,11 @@ Publicação inicial confirmada na branch `main`: commit `d5d3d5ca207e0a02831963
 
 O primeiro envio contém 85 arquivos revisados. A verificação de publicação não encontrou os segredos da instalação nem arquivos operacionais na cópia preparada. O `.gitignore` mantém essas exclusões para novos commits. O teste portátil e a sintaxe PHP/JavaScript passaram antes da publicação.
 
+**20/10/2026, 15:50: envio da base local.** A instalação foi conferida arquivo por arquivo contra o repositório local antes do envio. Só diferiram os PNGs, por um bloco de metadados que a transferência acrescenta, e o arquivo removido `indicadores-tv.php`, que foi movido para `storage/_to_delete`. Também foi feita uma varredura de segredos no código e no histórico, sem nada encontrado.
+- A branch `sync/base-local-requisitantes` (16 commits sobre `8a9cf77`) foi enviada ao GitHub.
+- O **PR #1** está aberto para revisão: https://github.com/Pontesrrafael/salinas-ti/pull/1.
+- A `main` só muda depois que você mesclar o PR.
+
 ## 14. Referências
 
 - [Salinas Access Gate](https://github.com/Pontesrrafael/salinas-access-gate)
@@ -356,4 +542,25 @@ O primeiro envio contém 85 arquivos revisados. A verificação de publicação 
 - [Rasterio — reprojeção](https://rasterio.readthedocs.io/en/stable/topics/reproject.html)
 - [GDAL — GeoTIFF](https://gdal.org/en/stable/drivers/raster/gtiff.html)
 
-Guias específicos incluídos: [Mapas e áreas](MAPAS-E-AREAS.md), [Project XML](EXPORTAR-MICROSOFT-PROJECT.md), [Filtros de datas](FILTROS-DE-DATAS.md), [Projetos](PROJETOS-E-CUSTOS.md), [Parque e custos](PAINEL-PARQUE-CUSTOS.md), [Patrimônios SGA](ATIVOS-SGA.md) e [Identidade visual](IDENTIDADE-VISUAL.md). Em caso de divergência com um guia antigo, conferir primeiro o código atual e este documento consolidado.
+Guias específicos incluídos: [Relatórios](RELATORIOS.md), [Centros de custo SGA](CENTROS-CUSTO-SGA.md), [Requisitantes SGA](REQUISITANTES-SGA.md), [Mapas e áreas](MAPAS-E-AREAS.md), [Project XML](EXPORTAR-MICROSOFT-PROJECT.md), [Filtros de datas](FILTROS-DE-DATAS.md), [Projetos](PROJETOS-E-CUSTOS.md), [Ativos e custos](PAINEL-PARQUE-CUSTOS.md), [Patrimônios SGA](ATIVOS-SGA.md) e [Identidade visual](IDENTIDADE-VISUAL.md). Em caso de divergência com um guia antigo, conferir primeiro o código atual e este documento consolidado.
+
+## 15. Histórico de alterações
+
+| Data (UTC-4) | Alteração | Arquivos principais |
+|---|---|---|
+| 19/10/2026 | Publicação inicial no GitHub (`d5d3d5c`) e registro do estado (`8a9cf77`) | — |
+| 20/10/2026 | Requisitantes configuráveis pela interface, opção de SSL na conexão SQL Server e marcador `{{REQUISITANTES_SGA}}` (feito na base local antes desta revisão) | `Requisitantes.php`, `Web.php`, `app.php`, consultas SQL |
+| 20/10/2026 | Revisão: sincronização valida os patrimônios filtrados antes de importar; escopo lido uma vez por importação | `Integracao.php` |
+| 20/10/2026 | **Escopo por centro de custo** (união com requisitantes, filhos por `CCSTCOD`, limites 300 CCs / 5.000 linhas, auditoria, tela) | `CentrosCusto.php`, `Web.php`, `app.php`, `Minerion.php`, `PatrimoniosSga.php`, `DocumentosCompra.php`, consultas SQL |
+| 20/10/2026 | Verificação geral: novos testes `verificar-centros-custo` e `verificar-ponta-a-ponta`; correção de `bin/coletar.php` e do caminho fixo do Python | `bin/`, `Mapas.php` |
+| 20/10/2026 09:20 | Verificação no navegador e sincronização do escopo 768: 196 compras, 3 ativos associados, 12 ambíguos, 9 sem número (seção 11.4) | — |
+| 23/10/2026 14:45 | **Uso ampliado, sem referências a "parque de TI"**: nome exibido **Salinas Gestão de Ativos** (`nome_app()`, configurável por `APP_NAME`); menu e painel **Ativos e custos**; login, topo, rodapé, títulos, PDF, Project XML, CSV e scripts `.ps1` neutros. A Visão Executiva **de TI** continua, porque os indicadores são de TI. Código, rotas, banco e repositório mantêm os nomes internos. Ponta a ponta com 103 verificações (inclui busca dos termos antigos nas telas) | `bootstrap.php`, `Web.php`, views, `RelatorioPdf.php`, `Pdf.php`, `ProjectXml.php`, `instalar.php`, `.ps1`, `.env.example`, docs, testes |
+| 20/10/2026 15:45 | **Tema claro/escuro** em todo o sistema (seletor no topo, cookie por navegador, sem redirecionamento aberto) e **Modo TV** também no **Parque e custos**, com layout comum (`tv.php`, `tv.css`, `tv.js`) e recarga periódica. Script `bin/definir-senha-db.php` para trocar a senha do usuário do banco com backup, reversão e auditoria. Ponta a ponta com 97 verificações | `bootstrap.php`, `Web.php`, `app.php`, `login.php`, `error.php`, `tv.php`, `parque-tv.php`, `periodo.php`, `indicadores.php`, CSS/JS, `definir-senha-db.php`, testes |
+| 20/10/2026 15:00 | **Indicadores de TI · Visão Executiva** (base no Power BI *SGM \| Dashboard de TI* e no padrão do Access Gate): 10 cartões com meta, parque/compras do escopo, gráficos SVG (disponibilidade diária, controles, riscos, parque), riscos altos, Modo TV e atualização automática. Tela **Dados dos indicadores**: lançamento, CSV tudo-ou-nada (medições e riscos), metas (admin), remoção auditada. Migração 007. Testes: `verificar-indicadores` (portátil) e ponta a ponta com 88 verificações | `007_indicadores_ti.sql`, `IndicadoresTi.php`, `GraficoSvg.php`, `Web.php`, `app.php`, `indicadores*.php`, `indicadores.css/js`, `INDICADORES-TI.md`, testes |
+| 20/10/2026 14:00 | **PDF no timbrado oficial** (`MODELO - TIMBRADO.docx`): sai a faixa verde com o logotipo em placa branca; entram o logotipo direto sobre o fundo branco, a faixa amarela lateral com razão social e CNPJ em texto vertical e o rodapé com linha verde, marcadores e endereços (Nossa Senhora do Livramento/MT e Cuiabá/MT) e listras diagonais. Faixa, linha e listras em vetor. `Pdf.php` ganhou polígono preenchido e texto vertical. Testes atualizados; ponta a ponta com 69 verificações | `Pdf.php`, `RelatorioPdf.php`, `Assets/pin-endereco-pdf.png`, `gerar-logo-pdf.py`, `RELATORIOS.md`, testes |
+| 20/10/2026 11:15 | **Relatório em PDF** com o **logotipo oficial** (placa branca na faixa verde, como na interface), A4 paisagem, cartões, tabelas paginadas com cabeçalho repetido e rodapé "Página X de Y". Gerado em PHP puro, sem bibliotecas. Teste portátil `verificar-relatorio-pdf`; ponta a ponta com 69 a 72 verificações | `Pdf.php`, `RelatorioPdf.php`, `Assets/`, `gerar-logo-pdf.py`, `Web.php`, `relatorios.php`, testes |
+| 20/10/2026 10:50 | **Relatórios** por centro de custo e período: seleção múltipla, CCs novos conferidos no SGA (todos antes de alterar), inclusão no escopo e sincronização antes do relatório, resumo sem dupla contagem, mensal, detalhe e CSV. Consulta SQL validada no SGA. Ponta a ponta com 68 a 70 verificações | `Relatorios.php`, `relatorios.php`, `Web.php`, `app.php`, `Parque.php`, `RELATORIOS.md`, testes |
+| 20/10/2026 10:40 | **Painel com compras do escopo** (com e sem patrimônio, com NF, bens sem número, tabela por origem) e **filtro por centro de custo/origem** no Painel; CCs efetivos guardados por entrada; filtros de Compras e Painel usam a mesma definição de origem. Ponta a ponta com 60 verificações nos três cenários de escopo | `Parque.php`, `CentrosCusto.php`, `Web.php`, `parque.php`, `periodo.php`, testes |
+| 20/10/2026 09:55 | **Escopo só por centro de custo**: requisitantes podem ser todos removidos se houver CC (sentinela `-1`); o último item do escopo combinado é protegido. **Compras SGA** ganhou o filtro "Origem no escopo" (por requisitante ou por CC) e a etiqueta "No escopo por" em cada linha. Teste ponta a ponta com 57 verificações nos três cenários (padrão, 768 + CC 1290, só CC 1290) | `Requisitantes.php`, `CentrosCusto.php`, `PatrimoniosSga.php`, `Integracao.php`, `Web.php`, `app.php`, testes |
+| 20/10/2026 09:45 | CC 1290 sincronizado (217 compras). Painel "Atualizar compras" mostra requisitantes **e** CCs; Patrimônios lista os bens do imobilizado sem número no escopo; teste ponta a ponta com 56 verificações | `app.php`, `ativos.php`, `Web.php`, `verificar-ponta-a-ponta.php` |
+| 20/10/2026 09:25 | **Telas pelo escopo atual**: painel, ativos, compras e pendências mostram só o escopo configurado (qualquer categoria), com opção "Todo o histórico importado". Sincronização não aborta mais quando o escopo não tem bens no imobilizado. Teste ponta a ponta com 53 verificações, usando o escopo real da instalação | `Parque.php`, `CentrosCusto.php`, `Integracao.php`, `Web.php`, `app.php`, `ativos.php`, `parque.php`, `verificar-ponta-a-ponta.php` |

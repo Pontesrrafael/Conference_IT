@@ -13,4 +13,4 @@ foreach($name in @('php-process.pid','mariadb-process.pid')) {
         }
     }
 }
-Write-Host 'Processos Salinas TI encerrados.'
+Write-Host 'Processos Salinas Gestao de Ativos encerrados.'

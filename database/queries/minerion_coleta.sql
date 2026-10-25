@@ -1,12 +1,13 @@
 -- SQL Server / Minerion SGA. Uma linha por IPCOCOD; não representa saldo físico.
--- Requisitantes confirmados: 756, 772 (corrigido pelo usuário), 316, 1318.
+-- Escopo: requisitantes configurados OU centro de custo da linha de compra (IPCOCC) configurado.
+-- Marcadores preenchidos somente com inteiros validados; -1 = nenhum CC. Não executar o template cru.
 SELECT i.IPCOCOD AS origem_item_id, p.PCOCOD AS processo_id, p.PCONUM AS processo_numero,
  p.PCOEMP AS empresa_id,p.PCOFIL AS filial_id,p.PCOSIT AS processo_situacao,
  CASE WHEN p.PCODATA > '19000101' THEN p.PCODATA END AS processo_data,
  CASE WHEN p.PCODATACANC > '19000101' THEN p.PCODATACANC END AS cancelado_em,
  i.IPCOFUNREQ AS requisitante_id,f.FUNNOME AS requisitante_nome,
  i.IPCOITEM AS produto_id,e.ESTQNOME AS produto_nome,
- i.IPCOCC AS centro_custo_compra_id,cc.CCNOME AS centro_custo_compra_nome,
+ i.IPCOCC AS centro_custo_compra_id,cc.CCNOME AS centro_custo_compra_nome,cc.CCSTCOD AS centro_custo_compra_caminho,
  CAST(i.IPCOQUANT AS decimal(18,4)) AS quantidade_solicitada,
  CAST(i.IPCOQUANTFAT AS decimal(18,4)) AS quantidade_faturada_cadastro,
  CAST(i.IPCOQUANTCANC AS decimal(18,4)) AS quantidade_cancelada,
@@ -31,5 +32,5 @@ OUTER APPLY (
  JOIN dbo.NOTAFISCALENTRADA nf ON nf.NFECOD=ni.INFENFE
  WHERE v.FIPCOIPCO=i.IPCOCOD AND v.FIPCOQUANT>0 AND nf.NFESIT=1
 ) n
-WHERE i.IPCOFUNREQ IN (756,772,316,1318)
+WHERE (i.IPCOFUNREQ IN ({{REQUISITANTES_SGA}}) OR i.IPCOCC IN ({{CENTROS_CUSTO_SGA}}))
 ORDER BY i.IPCOCOD

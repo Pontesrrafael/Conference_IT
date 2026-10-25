@@ -1,6 +1,6 @@
-# Salinas TI — parque de TI, projetos e áreas
+# Salinas Gestão de Ativos — ativos, compras, projetos e áreas
 
-Aplicação local em **PHP 8.2 e MariaDB**, baseada no padrão do [Salinas Access Gate](https://github.com/Pontesrrafael/salinas-access-gate), para acompanhar o parque de TI, compras do Minerion SGA, custos de projetos e apontamentos sobre mapas GeoTIFF.
+Aplicação local em **PHP 8.2 e MariaDB**, baseada no padrão do [Salinas Access Gate](https://github.com/Pontesrrafael/salinas-access-gate), para acompanhar os ativos de qualquer área (não só TI), compras do Minerion SGA, custos de projetos e apontamentos sobre mapas GeoTIFF.
 
 **Estado:** versão funcional para testes e homologação local. A instalação atual está em `D:\Apps_SG\Est_Sg`, com acesso em **http://localhost:2288** e MariaDB separado na porta **3308**. Ainda não é uma implantação homologada para produção.
 
@@ -54,3 +54,20 @@ O repositório contém código, migrações, consultas SQL, marca e documentaç�
 O histórico local não representa um inventário físico completo da empresa. Compras não são incorporadas automaticamente ao estoque; custos de parque e projetos podem se sobrepor e não devem ser somados. Mudanças no Microsoft Project não voltam automaticamente à aplicação.
 
 Uso interno Salinas Gold. Os recursos de marca e a fonte Author mantêm seus direitos e licenças originais. A publicação não concede licença aberta sobre o projeto ou sobre a identidade visual.
+
+
+## Parâmetros de requisitantes
+
+Veja [Requisitantes SGA](REQUISITANTES-SGA.md) para adicionar IDs pela interface e incluí-los nas consultas de compras e patrimônios.
+
+Veja [Relatórios](RELATORIOS.md) para gastos por centro de custo e período (seleção múltipla, CCs novos com sincronização e CSV).
+
+Veja [Indicadores de TI](INDICADORES-TI.md) para a Visão Executiva de TI (cartões com meta, gráficos, riscos, Modo TV e atualização automática).
+
+Tema claro, automático ou escuro: seletor no topo de todas as telas. Modo TV: botão **Modo TV** em Ativos e custos e na Visão Executiva.
+
+Troca da senha do usuário do banco: `C:\xampp\php\php.exe bin\definir-senha-db.php` (detalhes na seção 9 da [documentação completa](DOCUMENTACAO-COMPLETA.md)).
+
+Veja [Centros de custo SGA](CENTROS-CUSTO-SGA.md) para incluir centros de custo do SGA (com ou sem filhos) no escopo da consulta.
+
+Verificação rápida sem dados internos: `php bin/verificar-publicacao.php`, `php bin/verificar-requisitantes.php`, `php bin/verificar-centros-custo.php` e `php bin/verificar-relatorio-pdf.php`. Com o MariaDB da instalação ativo: `php bin/verificar-ponta-a-ponta.php`.
