@@ -1,0 +1,115 @@
+/* Camada visual alinhada ao Salinas Access Gate (tokens, estrutura, cartões, tabelas, formulários, login).
+   Carregada por último; sobrepõe app.css e brand.css sem alterar a marcação das telas. */
+:root{color-scheme:light;--raio:8px;--fonte:"Aptos","Calibri","Segoe UI",system-ui,-apple-system,sans-serif;--mono:"Cascadia Mono","Consolas",ui-monospace,monospace;
+--verde:#024B37;--verde-hover:#013626;--verde-escuro:#013626;--verde-claro:#e6f0ec;--marca:#024B37;--marca-escuro:#013626;--marca-fundo:#01261b;--lateral:#024B37;--logo-fundo:#fff;
+--ouro:#FFCD00;--ouro-claro:#fff6cc;--lima:#C6D53E;--cinza:#707070;--cinza-claro:#f3f4f3;--borda:#dfe3e1;--borda-forte:#c9d0cc;--texto:#1d2522;--texto-2:#36403c;--fundo:#f6f7f6;--branco:#fff;--superficie-2:#fafbfa;
+--sucesso-fundo:#e5f4ec;--sucesso-borda:#a9d9bf;--sucesso-texto:#12512f;--perigo:#b42318;--perigo-fundo:#fdecea;--perigo-borda:#f2b8b2;--perigo-texto:#7a1a12;--info:#1d4f91;
+--sombra:0 1px 2px rgba(0,0,0,.05),0 1px 6px rgba(0,0,0,.04);
+/* tokens legados do app.css apontando para os do Access Gate */
+--bg:var(--fundo);--surface:var(--branco);--text:var(--texto);--muted:var(--cinza);--line:var(--borda);--green:var(--verde);--accent:var(--verde);--sidebar:var(--lateral);--tint:var(--verde-claro);--danger:var(--perigo);
+font-family:var(--fonte);font-size:15px}
+body{font-family:var(--fonte);font-size:15px;line-height:1.45;color:var(--texto);background:var(--fundo)}
+button,input,select,textarea{font-family:inherit}
+a{color:var(--verde)}a:hover{color:var(--verde-hover)}
+h1{font-size:1.3rem;font-weight:700;letter-spacing:0;color:var(--verde);margin:0;line-height:1.25}
+h2{font-size:1.02rem;font-weight:700}h3{font-size:.95rem}
+.eyebrow{font-size:.7rem;letter-spacing:.09em;color:var(--cinza);margin:0 0 4px;font-weight:700}
+.muted{color:var(--cinza)}
+
+/* Estrutura */
+.sidebar{width:248px;background:var(--lateral);color:#e9f2ee;z-index:40;transition:transform .2s ease}
+.brand{background:var(--logo-fundo);padding:14px 16px;min-height:0;border-bottom:3px solid var(--ouro);display:flex;flex-direction:column;align-items:center}
+.brand-logo{height:56px;width:auto;max-width:100%;max-height:none}
+.brand-product{margin:8px 0 0;padding:0;border:0;font-size:.7rem;letter-spacing:.09em;color:var(--verde)}
+.nav-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.09em;color:#9fc3b5;margin:16px 18px 6px}
+.sidebar nav{padding:0 10px 16px;overflow-y:auto}
+.sidebar nav a{display:flex;align-items:center;gap:10px;padding:9px 10px;margin:1px 0;border-radius:6px;color:#e9f2ee;font-size:.93rem;border-left:0}
+.sidebar nav a:hover{background:rgba(255,255,255,.08);color:#fff;text-decoration:none}
+.sidebar nav a.active{background:var(--ouro);color:var(--verde-escuro);font-weight:700;border-left:0}
+.sidebar-bottom{border-top:1px solid rgba(255,255,255,.15);padding:12px 20px}
+.sidebar-bottom .ghost{border-color:rgba(255,255,255,.3);color:#fff}
+.workspace{margin-left:248px;min-height:100vh;display:flex;flex-direction:column}
+.topbar{height:auto;padding:16px 28px;background:var(--branco);border-bottom:1px solid var(--borda);position:sticky;top:0;z-index:20;gap:14px;font-size:.88rem;color:var(--cinza)}
+.topbar-titulo{flex:1;min-width:0}.topbar-titulo p{margin:2px 0 0;font-size:.88rem;color:var(--cinza)}
+.status-dot{color:var(--verde);font-size:.75rem;font-weight:700;letter-spacing:.05em;border:1px solid var(--borda-forte);border-radius:20px;padding:4px 10px}
+.content{padding:22px 28px 32px;max-width:1440px;margin:0;width:100%}
+.page-heading{margin-bottom:14px;justify-content:flex-end}.page-heading:not(:has(.button)){display:none}
+footer{font-size:.78rem;color:var(--cinza)}
+
+/* Cartões, métricas e destaque */
+.panel{background:var(--branco);border:1px solid var(--borda);border-radius:var(--raio);box-shadow:var(--sombra);padding:18px 20px;margin-bottom:18px}
+.columns{gap:18px;margin-bottom:18px}
+.table-panel{padding:0;overflow-x:auto}.table-panel h2{padding:14px 20px;margin:0;border-bottom:1px solid var(--borda)}
+.metrics{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:18px}
+.metrics article{background:var(--branco);border:1px solid var(--borda);border-top:3px solid var(--lima);border-radius:var(--raio);padding:14px 16px;box-shadow:var(--sombra)}
+.metrics p{font-size:.78rem;color:var(--cinza);text-transform:uppercase;letter-spacing:.05em;margin:0 0 4px}
+.metrics strong{font-size:1.9rem;font-weight:400;color:var(--verde);letter-spacing:0;line-height:1.2}
+.hero{background:linear-gradient(160deg,var(--marca) 0%,var(--marca-escuro) 100%);border-radius:var(--raio);border-bottom:3px solid var(--ouro);padding:22px 24px;margin-bottom:18px;box-shadow:var(--sombra)}
+.hero h2{font-size:1.6rem;font-weight:700}.hero p{font-size:.95rem}
+.hero .button{background:var(--ouro);color:var(--verde-escuro)}.hero .button:hover{background:#f0c000}
+.hero-note strong{font-size:2.6rem;color:var(--ouro)}
+.summary-row{border-bottom:1px solid var(--cinza-claro);padding:8px 0}
+
+/* Tabelas */
+table{font-size:.9rem}
+th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--cinza);background:var(--cinza-claro);padding:10px 12px;font-weight:700}
+td{padding:10px 12px;border-top:1px solid var(--cinza-claro);font-size:.9rem;line-height:1.45}
+td strong{font-size:.9rem}td small{font-size:.8rem}
+tbody tr:hover{background:var(--superficie-2)}
+.pill{font-size:.75rem;font-weight:700;border-radius:999px;padding:2px 9px;background:var(--verde-claro);border:1px solid transparent;color:var(--verde)}
+
+/* Alertas */
+.notice{border-radius:var(--raio);padding:11px 14px;margin-bottom:14px;font-size:.9rem;border:1px solid var(--borda)}
+.notice.success{background:var(--sucesso-fundo);border-color:var(--sucesso-borda);color:var(--sucesso-texto)}
+.notice.error{background:var(--perigo-fundo);border-color:var(--perigo-borda);color:var(--perigo-texto)}
+
+/* Formulários e botões */
+label{font-size:.86rem;font-weight:600;color:var(--texto-2);margin:8px 0}
+input,select,textarea{font-size:.95rem;border:1px solid var(--borda-forte);border-radius:6px;padding:8px 10px;min-height:38px;background:var(--branco);color:var(--texto)}
+input[type=checkbox],input[type=radio]{min-height:0;accent-color:var(--verde)}
+input:focus,select:focus,textarea:focus,button:focus-visible,a:focus-visible{outline:3px solid rgba(255,205,0,.55);outline-offset:1px;border-color:var(--verde)}
+.stack input,.stack select,.stack textarea{font-size:.9rem}
+button,.button{display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:700;font-size:.93rem;padding:9px 16px;border-radius:6px;border:1px solid transparent;background:var(--marca);color:#fff;line-height:1.2;filter:none}
+button:hover,.button:hover{background:var(--marca-escuro);color:#fff;filter:none;text-decoration:none}
+.secondary,button.secondary,.button.secondary{background:var(--branco);color:var(--verde);border-color:var(--borda-forte)}
+.secondary:hover,button.secondary:hover,.button.secondary:hover{background:var(--verde-claro);border-color:var(--verde);color:var(--verde)}
+.ghost{background:transparent}
+summary{color:var(--verde);font-size:.9rem;font-weight:700}
+hr{border-top:1px solid var(--borda);margin:18px 0}
+
+/* Login (tela simples do Access Gate) */
+.login-page{background:linear-gradient(160deg,var(--marca) 0%,var(--marca-escuro) 60%,var(--marca-fundo) 100%);border-top:0;padding:24px 16px}
+.login-card{width:min(420px,100%);max-width:420px;padding:28px 26px;border-radius:14px;border-top:5px solid var(--ouro);border-bottom:0;box-shadow:0 20px 60px rgba(0,0,0,.3);background:#fff;color:var(--texto)}
+.login-brand{padding:0 0 14px;margin-bottom:14px;border-bottom:0;display:flex;justify-content:center}
+.login-logo{height:64px;width:auto;max-width:100%;max-height:none}
+.login-card .eyebrow{text-align:center;color:var(--cinza)}
+.login-card h1{text-align:center;font-size:1.35rem;color:var(--verde);margin-bottom:4px}
+.login-card>p.muted{text-align:center;font-size:.9rem;margin:0 0 18px}
+.login-card form{margin:0}.login-card button{width:100%;min-height:46px;font-size:1rem;margin:14px 0 0;background:var(--marca);color:#fff}
+.login-card .small{text-align:center;font-size:.84rem;margin:14px 0 0}
+
+/* Menu móvel (mesmo padrão do Access Gate: checkbox + rótulo, sem script) */
+.menu-toggle{display:none}.btn-menu{display:none;cursor:pointer;color:var(--verde);border:1px solid var(--borda-forte);border-radius:6px;padding:6px 10px;font-weight:700}
+.menu-overlay{display:none}
+@media(max-width:900px){
+  .sidebar{position:fixed;inset:0 auto 0 0;width:248px;transform:translateX(-100%)}
+  .menu-toggle:checked~.sidebar{transform:none;box-shadow:0 0 40px rgba(0,0,0,.3)}
+  .menu-toggle:checked~.menu-overlay{display:block;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:35}
+  .sidebar nav{display:block;overflow-y:auto}.sidebar nav a{white-space:normal;font-size:.93rem}.nav-label{display:block}
+  .brand{flex-direction:column;padding:14px 16px}.brand-logo{width:auto}
+  .workspace{margin-left:0}.btn-menu{display:inline-flex}
+  .topbar{padding:12px 16px;flex-wrap:wrap}.content{padding:16px}
+  .columns,.columns.three{grid-template-columns:1fr}
+}
+@media(max-width:560px){.metrics strong{font-size:1.5rem}.status-dot{display:none}}
+
+/* Tema escuro: mesmos tokens do Access Gate */
+@media(prefers-color-scheme:dark){:root{color-scheme:dark;--verde:#5cc99c;--verde-hover:#8ddcbb;--verde-claro:#15372b;--marca:#0b5a43;--marca-escuro:#08432f;--marca-fundo:#050c0a;--lateral:#0f1a16;--logo-fundo:#fff;
+--cinza:#96a19c;--cinza-claro:#222c28;--borda:#2c3833;--borda-forte:#3e4c46;--texto:#e6ebe8;--texto-2:#cdd5d1;--fundo:#0e1412;--branco:#171f1c;--superficie-2:#1d2724;
+--sucesso-fundo:#12301f;--sucesso-borda:#245c3d;--sucesso-texto:#a6e6c4;--perigo:#ff8a7e;--perigo-fundo:#3a1714;--perigo-borda:#6b2a24;--perigo-texto:#ffb4ab}
+  button,.button{background:var(--marca);color:#fff}.hero .button{background:var(--ouro);color:#013626}
+  .sidebar nav a.active{background:var(--ouro);color:#013626}.brand-product{color:#024B37}
+  .metrics strong{color:var(--verde)}.pill{color:var(--verde)}
+  .login-card{background:#fff;color:#1d2522}.login-card h1{color:#024B37}.login-card label{color:#36403c}.login-card .muted,.login-card .eyebrow{color:#707070}.login-card input{background:#fff;color:#1d2522;border-color:#c9d0cc}.login-card button{background:#024B37}
+}
+@media print{.btn-menu,.menu-overlay{display:none}.workspace{margin:0}}
