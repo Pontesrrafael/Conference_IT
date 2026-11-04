@@ -53,7 +53,10 @@ try {
         // Gravar antes de trocar para permitir retomada caso haja interrupção.
         file_put_contents($rootFile,json_encode(['senha'=>$new]));
         foreach($admin->query("SELECT User,Host FROM mysql.user WHERE User='root'")->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            $admin->exec('ALTER USER '.$admin->quote($row['User']).'@'.$admin->quote($row['Host']).' IDENTIFIED BY '.$admin->quote($new));
+            // Com skip-name-resolve, contas root@<hostname> ficam inacessíveis e o ALTER falha (1396); removê-las.
+            $conta=$admin->quote($row['User']).'@'.$admin->quote($row['Host']);
+            try { $admin->exec('ALTER USER '.$conta.' IDENTIFIED BY '.$admin->quote($new)); }
+            catch(PDOException $e) { if(($e->errorInfo[1]??0)!==1396) throw $e; $admin->exec('DROP USER IF EXISTS '.$conta); }
         }
     }
     echo 'Instalacao verificada. Acesso: http://localhost:2288'.PHP_EOL;
