@@ -42,7 +42,8 @@ final class Integracao {
     }
     private static function validarConfig(array $c): array {
         // Compatibilidade: configurações antigas gravavam "host,porta" no campo servidor.
-        if(is_string($c['servidor']) && preg_match('/^\s*([^,\s]+)\s*,\s*(\d{1,5})\s*$/',$c['servidor'],$m)) { $c['servidor']=$m[1]; $c['porta']=(int)$m[2]; }
+        // Também "host:porta" e "[ipv6]:porta" (formato visto no servidor Linux). IPv6 sem colchetes não é alterado.
+        if(is_string($c['servidor']) && (preg_match('/^\s*([^,\s]+)\s*,\s*(\d{1,5})\s*$/',$c['servidor'],$m) || preg_match('/^\s*\[?([^\[\]\s:]+|[0-9a-f:]+(?=\]))\]?:(\d{1,5})\s*$/i',$c['servidor'],$m))) { $c['servidor']=$m[1]; $c['porta']=(int)$m[2]; }
         foreach(['servidor'=>200,'banco'=>128,'usuario'=>128,'ip'=>45,'ca_arquivo'=>1024] as $key=>$max) {
             if(!is_string($c[$key]) || strlen($c[$key])>$max || preg_match('/[\x00-\x1f\x7f]/',$c[$key])) throw new SgaFalha('login','Configuração inválida.','Verifique o campo '.$key.'.');
             $c[$key]=trim($c[$key]);

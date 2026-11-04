@@ -107,6 +107,18 @@ Compras e patrimônios entram na mesma transação: ou entram os dois, ou nada m
 
 Os erros vistos antes no log eram de tentativas **anteriores a salvar a conexão** ("Configure a conexão ao Minerion primeiro.").
 
+## Resultado no Virtualmin (04/11/2026, falhando por rede)
+
+No servidor (PHP 8.3 CGI, com `pdo_sqlsrv` e ODBC Driver 18 carregados):
+- **DNS:** ok, resolve para o IP privado do RDS;
+- **TCP 1433:** `113 — No route to host`, em três tentativas;
+- **Resposta do gateway:** ICMP tipo 3, código 1 (destino inacessível);
+- **PDO:** `HYT00 Login timeout expired`. Isso é consequência da falha de rede, não erro de senha.
+
+Uma estação da mesma rede alcança o RDS. **A correção é de infraestrutura:** liberar o fluxo do IP do servidor até o RDS na porta 1433 no gateway ou VPN (rota, túnel ou política) e conferir o retorno. Trocar a senha, desativar TLS ou reinstalar o driver não resolve. Enquanto a rede não for liberada, use o **plano B** (exportar na estação e importar no servidor).
+
+Atenção: a instalação do servidor tem código próprio, que não está no repositório. Compare e versione essas diferenças antes de atualizar o servidor com a `main`; não sobrescreva a instalação inteira.
+
 ## Checklist no servidor Linux (Virtualmin)
 
 Rode os comandos no servidor, como o usuário do domínio quando indicado. Pare no primeiro item que falhar.
