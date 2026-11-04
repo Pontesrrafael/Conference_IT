@@ -43,7 +43,11 @@ final class PatrimoniosSga {
                     $stage=DB::one('SELECT * FROM patrimonios_sga WHERE imobilizado_item_id=?',[$source]);
                     self::associar($stage,$actor); $updated=DB::one('SELECT situacao FROM patrimonios_sga WHERE id=?',[$stage['id']]); $stats[$updated['situacao']]++;
                 }
-                if($fonte==='sga') DB::run('UPDATE patrimonios_sga SET origem_presente=0,situacao=\'conflito\',motivo=\'Registro não retornou na última consulta; conferir origem.\' WHERE imobilizado_item_id NOT IN ('.implode(',',array_fill(0,count($seen),'?')).')',$seen);
+                // Fotografia completa (consulta direta ou arquivo exportado): ausentes viram conflito.
+                // Proteção: retorno muito menor que a base presente indica consulta parcial; aborta sem alterar nada.
+                $presentes=(int)DB::one('SELECT COUNT(*) n FROM patrimonios_sga WHERE origem_presente=1')['n'];
+                if(in_array($fonte,['sga','arquivo'],true) && $presentes>=100 && count($seen)<$presentes*0.5) throw new RuntimeException('A origem retornou '.count($seen).' patrimônios, menos da metade dos '.$presentes.' atuais. Carga abortada por suspeita de consulta parcial; nada foi alterado.');
+                if(in_array($fonte,['sga','arquivo'],true)) DB::run('UPDATE patrimonios_sga SET origem_presente=0,situacao=\'conflito\',motivo=\'Registro não retornou na última consulta; conferir origem.\' WHERE imobilizado_item_id NOT IN ('.implode(',',array_fill(0,count($seen),'?')).')',$seen);
                 DB::audit('patrimonios_sga','coleta','sincronizar',null,['fonte'=>$fonte,'resumo'=>$stats],$actor);
                 return $stats;
             });

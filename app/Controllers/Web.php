@@ -11,6 +11,8 @@ use App\Services\Periodo;
 use App\Services\Parque;
 use App\Services\Mapas;
 use App\Services\PatrimoniosSga;
+use App\Services\SgaArquivo;
+use App\Services\SgaFalha;
 use RuntimeException;
 final class Web {
     public static function run(): void {
@@ -46,7 +48,8 @@ final class Web {
             if($path==='/exportar') { self::export(); return; }
             if($path==='/projeto-project'){ $file=ProjectXml::gerar((int)($_GET['id']??0)); header('Content-Type: application/xml; charset=UTF-8');header('Content-Disposition: attachment; filename="'.$file['nome'].'"');echo $file['xml'];return; }
             if($path==='/projeto-exportar') { self::exportProjeto((int)($_GET['id']??0)); return; }
-            if($path==='/integracao' && $u['perfil']!=='admin') throw new RuntimeException('Somente administradores podem configurar a integração.');
+            if(in_array($path,['/integracao','/sga-exportar'],true) && $u['perfil']!=='admin') throw new RuntimeException('Somente administradores podem configurar a integração.');
+            if($path==='/sga-exportar') { set_time_limit(180); $json=SgaArquivo::exportar(); header('Content-Type: application/json; charset=UTF-8'); header('Content-Disposition: attachment; filename="sga-export-'.date('Ymd-His').'.json"'); echo $json; return; }
             $params['locais']=DB::all('SELECT id,nome FROM locais WHERE ativo=1 ORDER BY nome');
             $params['ccs']=DB::all("SELECT id,CONCAT(COALESCE(sga_codigo,'Local'),' · ',nome) nome FROM centros_custo WHERE ativo=1 ORDER BY nome");
             $params['responsaveis']=DB::all('SELECT id,nome FROM responsaveis WHERE ativo=1 ORDER BY nome');
@@ -101,7 +104,7 @@ final class Web {
                 case '/estoque':
                     $params['rows']=DB::all('SELECT s.*,l.referencia,p.nome produto,p.unidade,lo.nome local_nome,c.nome cc_nome FROM saldos_estoque s JOIN lotes_estoque l ON l.id=s.lote_id JOIN produtos p ON p.id=l.produto_id JOIN locais lo ON lo.id=s.local_id JOIN centros_custo c ON c.id=s.centro_custo_id WHERE s.quantidade>0 ORDER BY p.nome,lo.nome'); break;
                 case '/cadastros': break;
-                case '/integracao': $params['connection']=Integracao::config(); $params['runs']=DB::all('SELECT * FROM sincronizacoes ORDER BY id DESC LIMIT 20'); break;
+                case '/integracao': $params['connection']=Integracao::config(); $params['drivers']=Integracao::driversDisponiveis(); $params['diagnostico']=$_SESSION['sga_diagnostico']??null; unset($_SESSION['sga_diagnostico']); $params['runs']=DB::all('SELECT * FROM sincronizacoes ORDER BY id DESC LIMIT 20'); break;
                 case '/historico':
                     $params['rows']=DB::all('SELECT m.*,p.nome produto,a.patrimonio,u.nome autor,lo.nome origem,ld.nome destino,co.nome cc_origem,cd.nome cc_destino,ro.nome resp_origem,rd.nome resp_destino FROM movimentacoes m LEFT JOIN ativos a ON a.id=m.ativo_id LEFT JOIN lotes_estoque l ON l.id=m.lote_id JOIN produtos p ON p.id=COALESCE(a.produto_id,l.produto_id) JOIN usuarios u ON u.id=m.autor_id LEFT JOIN locais lo ON lo.id=m.local_origem_id LEFT JOIN locais ld ON ld.id=m.local_destino_id LEFT JOIN centros_custo co ON co.id=m.cc_origem_id LEFT JOIN centros_custo cd ON cd.id=m.cc_destino_id LEFT JOIN responsaveis ro ON ro.id=m.responsavel_origem_id LEFT JOIN responsaveis rd ON rd.id=m.responsavel_destino_id ORDER BY m.id DESC LIMIT 200');
                     $params['audit']=DB::all('SELECT a.*,u.nome autor FROM auditoria a LEFT JOIN usuarios u ON u.id=a.autor_id ORDER BY a.id DESC LIMIT 100'); break;
@@ -114,12 +117,14 @@ final class Web {
             self::view('app',$params);
         } catch(\Throwable $e) {
             $message=$e instanceof RuntimeException && !$e instanceof \PDOException ? $e->getMessage() : 'Não foi possível concluir. Confira a configuração ou possíveis dados duplicados.';
-            error_log('Salinas TI: '.get_class($e).' codigo '.$e->getCode());
+            if($e instanceof SgaFalha) $message.=' (etapa: '.$e->etapa.')';
+            $chain=[]; for($x=$e;$x;$x=$x->getPrevious()) $chain[]=get_class($x).' ('.$x->getCode().'): '.str_replace(["\r","\n"],' ',$x->getMessage());
+            error_log('Salinas TI '.$path.': '.mb_substr(implode(' <- ',$chain),0,2000));
             if($_SERVER['REQUEST_METHOD']==='POST') { $_SESSION['error']=$message; url(empty($_SESSION['uid'])?'/login':self::back($path)); }
             self::view('error',['title'=>'Verificação necessária','message'=>$message]);
         }
     }
-    private static function back(string $p): string { return match($p){'/mapa-upload'=>'/mapas','/mapa-area','/mapa-vincular','/mapa-desvincular'=>'/mapa?id='.(int)($_POST['mapa_id']??0),'/projeto-salvar'=>'/projetos','/projeto-documento-buscar','/projeto-documento-confirmar'=>'/projeto?id='.(int)($_POST['projeto_id']??0).'#documento-coleta','/projeto-apontar','/projeto-desvincular'=>(($_POST['voltar_compras']??'')==='1'?'/compras':'/projeto?id='.(int)($_POST['projeto_id']??0)),'/triagem','/incorporar'=>'/compras','/mover-ativo','/patrimonio-conferir','/patrimonio-associar'=>'/ativos','/mover-material'=>'/estoque','/cadastro'=>'/cadastros','/sga-salvar','/sga-sincronizar'=>'/integracao','/senha'=>'/conta',default=>'/'}; }
+    private static function back(string $p): string { return match($p){'/mapa-upload'=>'/mapas','/mapa-area','/mapa-vincular','/mapa-desvincular'=>'/mapa?id='.(int)($_POST['mapa_id']??0),'/projeto-salvar'=>'/projetos','/projeto-documento-buscar','/projeto-documento-confirmar'=>'/projeto?id='.(int)($_POST['projeto_id']??0).'#documento-coleta','/projeto-apontar','/projeto-desvincular'=>(($_POST['voltar_compras']??'')==='1'?'/compras':'/projeto?id='.(int)($_POST['projeto_id']??0)),'/triagem','/incorporar'=>'/compras','/mover-ativo','/patrimonio-conferir','/patrimonio-associar'=>'/ativos','/mover-material'=>'/estoque','/cadastro'=>'/cadastros','/sga-salvar','/sga-sincronizar','/sga-testar','/sga-importar'=>'/integracao','/senha'=>'/conta',default=>'/'}; }
     private static function login(): never {
         $email=strtolower(trim((string)($_POST['email']??''))); $key=hash('sha256',$email.'|'.($_SERVER['REMOTE_ADDR']??''));
         $t=DB::one('SELECT * FROM login_tentativas WHERE chave=?',[$key]);
@@ -181,6 +186,16 @@ final class Web {
                 if($u['perfil']!=='admin') throw new RuntimeException('Permissão insuficiente.');
                 set_time_limit(180); $sync=Integracao::sincronizar($actor); $n=$sync['compras'];
                 $_SESSION['success']="$n compras sincronizadas. Patrimônios: ".$sync['patrimonios']['associado']." associados; ".$sync['patrimonios']['ambiguo']." ambíguos; ".$sync['patrimonios']['sem_numero']." sem número."; url('/integracao');
+            case '/sga-testar':
+                if($u['perfil']!=='admin') throw new RuntimeException('Permissão insuficiente.');
+                set_time_limit(120); $_SESSION['sga_diagnostico']=Integracao::diagnosticar(); url('/integracao#diagnostico');
+            case '/sga-importar':
+                if($u['perfil']!=='admin') throw new RuntimeException('Permissão insuficiente.');
+                $f=$_FILES['arquivo']??[]; if(($f['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK || !is_uploaded_file((string)$f['tmp_name'])) throw new RuntimeException('Envie o arquivo exportado do SGA.');
+                if((int)$f['size']>50*1024*1024) throw new RuntimeException('Arquivo acima de 50 MiB.');
+                set_time_limit(180); $sync=SgaArquivo::importar((string)file_get_contents((string)$f['tmp_name']),$actor);
+                DB::audit('integracao','sga','importar_arquivo',null,['arquivo'=>mb_substr((string)$f['name'],0,120),'compras'=>$sync['compras']],$actor);
+                $_SESSION['success']=$sync['compras'].' compras importadas do arquivo. Patrimônios: '.$sync['patrimonios']['associado'].' associados; '.$sync['patrimonios']['ambiguo'].' ambíguos; '.$sync['patrimonios']['sem_numero'].' sem número.'; url('/integracao');
             case '/senha':
                 $pw=(string)($_POST['nova_senha']??''); $old=DB::one('SELECT senha_hash FROM usuarios WHERE id=?',[$actor]);
                 if(!password_verify((string)($_POST['senha_atual']??''),$old['senha_hash'])) throw new RuntimeException('Senha atual incorreta.');
