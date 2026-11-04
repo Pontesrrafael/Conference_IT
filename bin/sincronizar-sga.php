@@ -19,6 +19,6 @@ try {
     $m=$r['compras'].' compras; patrimônios: '.$r['patrimonios']['associado'].' associados, '.$r['patrimonios']['ambiguo'].' ambíguos, '.$r['patrimonios']['sem_numero'].' sem número.';
     echo $m,PHP_EOL; $registrar('ok '.$m); exit(0);
 } catch(Throwable $e) {
-    $chain=[]; for($x=$e;$x;$x=$x->getPrevious()) $chain[]=get_class($x).': '.$x->getMessage().(property_exists($x,'detalhe')?' ['.$x->etapa.'] '.$x->detalhe:'');
+    $chain=[]; for($x=$e;$x;$x=$x->getPrevious()) $chain[]=get_class($x).': '.($x instanceof App\Services\SgaFalha?'['.$x->etapa.'] ':'').$x->getMessage();
     $m=implode(' <- ',$chain); fwrite(STDERR,$m.PHP_EOL); $registrar('falha '.$m); exit(1);
 } finally { flock($lock,LOCK_UN); fclose($lock); }

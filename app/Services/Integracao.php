@@ -41,6 +41,8 @@ final class Integracao {
         return hex2bin($hex);
     }
     private static function validarConfig(array $c): array {
+        // Compatibilidade: configurações antigas gravavam "host,porta" no campo servidor.
+        if(is_string($c['servidor']) && preg_match('/^\s*([^,\s]+)\s*,\s*(\d{1,5})\s*$/',$c['servidor'],$m)) { $c['servidor']=$m[1]; $c['porta']=(int)$m[2]; }
         foreach(['servidor'=>200,'banco'=>128,'usuario'=>128,'ip'=>45,'ca_arquivo'=>1024] as $key=>$max) {
             if(!is_string($c[$key]) || strlen($c[$key])>$max || preg_match('/[\x00-\x1f\x7f]/',$c[$key])) throw new SgaFalha('login','Configuração inválida.','Verifique o campo '.$key.'.');
             $c[$key]=trim($c[$key]);
@@ -304,7 +306,7 @@ final class Integracao {
             'versao'=>static function(): string { $rows=self::executarSql('SELECT @@VERSION AS versao'); if(empty($rows[0]['versao'])) throw new RuntimeException('Versão não retornada pelo SGA.'); return mb_substr(preg_replace('/\s+/u',' ',(string)$rows[0]['versao']),0,300,'UTF-8'); }
         ];
         foreach($steps as $stage=>$run) {
-            if($failed) { $result[]=['etapa'=>$stage,'ok'=>false,'detalhe'=>'Não executado: uma etapa crítica anterior falhou.','ms'=>0]; continue; }
+            if($failed) { $result[]=['etapa'=>$stage,'ok'=>null,'detalhe'=>'Não executado: uma etapa crítica anterior falhou.','ms'=>0]; continue; }
             $start=hrtime(true);
             try { $detail=$run(); $ok=true; }
             catch(\Throwable $e) { $ok=false; $failed=true; $detail=self::limpar($e->getMessage(),$c); }
@@ -372,7 +374,12 @@ final class Integracao {
                     else DB::run('INSERT INTO compras_origem(processo_id,empresa_id,filial_id,requisitante_codigo,produto_id,centro_custo_compra_id,processo_data,cancelado_em,quantidade_solicitada,quantidade_faturada,quantidade_cancelada,quantidade_vinculada_nf,valor_unitario_pedido,vinculos_nf_positivos,ultima_sincronizacao_id,payload_json,conciliacao_pendente,origem_item_id) VALUES('.implode(',',array_fill(0,18,'?')).')',[...$v,$r['origem_item_id']]);
                     if($fonte==='sga_documento' && !$old) DB::run('UPDATE compras_origem SET entrada_documento=1 WHERE origem_item_id=?',[$r['origem_item_id']]);
                 }
-                if($fonte==='sga') DB::run('UPDATE compras_origem SET origem_presente=0,conciliacao_pendente=1 WHERE ultima_sincronizacao_id<>? AND entrada_documento=0',[$id]);
+                if(in_array($fonte,['sga','arquivo'],true)) {
+                    // Fotografia completa: o que não voltou fica ausente. Retorno abaixo da metade da base presente indica consulta parcial.
+                    $presentes=(int)DB::one('SELECT COUNT(*) n FROM compras_origem WHERE origem_presente=1 AND entrada_documento=0')['n'];
+                    if($presentes>=100 && count($rows)<$presentes*0.5) throw new RuntimeException('A origem retornou '.count($rows).' compras, menos da metade das '.$presentes.' atuais. Carga abortada por suspeita de consulta parcial; nada foi alterado.');
+                    DB::run('UPDATE compras_origem SET origem_presente=0,conciliacao_pendente=1 WHERE ultima_sincronizacao_id<>? AND entrada_documento=0 AND origem_presente=1',[$id]);
+                }
                 DB::run("UPDATE sincronizacoes SET situacao='concluida',fim=NOW(),linhas_lidas=? WHERE id=?",[count($rows),$id]);
                 DB::audit('sincronizacoes',$id,'importar',null,['fonte'=>$fonte,'linhas'=>count($rows)],$actor);
             });

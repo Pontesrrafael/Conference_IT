@@ -6,10 +6,93 @@ Guia para resolver a falha "Falha ao consultar o SGA. Confira VPN, servidor, ban
 
 - **Servidor:** `dbsalinas.c7i0siuee3bb.us-east-1.rds.amazonaws.com` (SQL Server 2019 em AWS RDS), porta **1433**, banco `Salinas`.
 - **Configuração:** a guia Integração grava `storage/sga.json`. A senha fica cifrada (libsodium) com o `APP_KEY` do `.env` daquela instalação.
-- **Código:** `app/Services/Integracao.php`, em `executarSql()`:
-  1. Se o PHP tem o driver PDO `sqlsrv`, conecta direto, com `Encrypt=yes` e `TrustServerCertificate` conforme a opção "Confiar no certificado".
-  2. Sem o driver, **só no Windows**, usa a ponte `bin/sga-consultar.ps1` (System.Data.SqlClient). No Linux não existe ponte, e o erro é "Habilite pdo_sqlsrv neste PHP.".
-- **Erros:** o `storage/logs/php.log` registra só a classe do erro (`RuntimeException codigo 0`), sem a mensagem. A mensagem real aparece na tela, em vermelho, depois da ação. Os erros da ponte Windows vão para `storage/bridge-error.log`.
+- **Código:** `app/Services/Integracao.php`, em `executarSql()`, tenta os drivers nesta ordem e usa o primeiro disponível:
+  1. PDO `sqlsrv` (Microsoft);
+  2. PDO `dblib` (FreeTDS, pacote `php-sybase`/`php8.2-sybase`, geralmente o mais fácil de instalar no Linux);
+  3. PDO `odbc` com "ODBC Driver 18/17 for SQL Server" ou FreeTDS;
+  4. só no Windows, a ponte `bin/sga-consultar.ps1` (System.Data.SqlClient).
+- **Novas tentativas:** falhas de rede e DNS são repetidas até 3 vezes (espera de 1 s e 3 s). Senha, certificado e erro de SQL não são repetidos.
+- **Erros:** cada falha informa a **etapa** (`dns`, `rede`, `driver`, `senha`, `tls`, `login`, `consulta`) e o detalhe técnico, sem a senha. Os registros ficam em:
+  - `storage/logs/sga-conexao.log`: cada tentativa que falhou;
+  - `storage/logs/php.log`: a mensagem completa e a causa de origem, por rota;
+  - `storage/bridge-error.log`: os erros da ponte Windows;
+  - a tabela "Últimas execuções" da guia Integração.
+
+## Parâmetros da conexão
+
+Em **Integração SGA → Parâmetros avançados**:
+
+| Campo | Padrão | Uso |
+|---|---|---|
+| Porta | 1433 | porta do SQL Server; `servidor,porta` antigo é convertido sozinho |
+| IP fixo | vazio | conecta neste IP em vez do nome; use quando o DNS do servidor não resolve o RDS para o IP interno |
+| Tempo limite de login | 30 s | aumente em rotas lentas por VPN |
+| Tempo limite da consulta | 120 s | as consultas reais levam de 6 s a 9 s |
+| Criptografia | sim | TLS obrigatório; `não` só para teste |
+| Arquivo CA | vazio | bundle da AWS para o FreeTDS validar o certificado (`ca_arquivo`) |
+| Confiar no certificado | desmarcado | aceita o certificado sem validar a CA |
+
+## Testar conexão por etapas
+
+- **Na tela:** guia Integração, botão **Testar conexão por etapas**.
+- **No terminal:** `php bin/sincronizar-sga.php --diagnostico`.
+
+As etapas rodam em ordem e o teste para na primeira que falhar:
+1. configuração;
+2. sodium;
+3. senha;
+4. DNS, mostrando os IPs resolvidos;
+5. TCP na porta, com limite de 5 s;
+6. drivers;
+7. login com `SELECT 1`;
+8. versão.
+
+Saída na estação Windows:
+
+```text
+dns        ok        90ms  dbsalinas...rds.amazonaws.com → 172.16.0.243
+rede       ok       154ms  TCP 1433 acessível (limite de 5 s).
+driver     ok         1ms  Disponíveis: powershell. Selecionado: powershell.
+login      ok      1394ms  Login e SELECT 1 concluídos.
+```
+
+## Sincronização agendada (cron)
+
+Prefira o cron ao botão da tela, porque ele não depende dos limites do PHP-FPM:
+
+```bash
+*/30 * * * * cd /home/<dominio>/<pasta-da-aplicacao> && php bin/sincronizar-sga.php >> storage/logs/cron-sga.log 2>&1
+```
+
+Como ele se comporta:
+- uma trava (`storage/sincronizar-sga.lock`) impede duas execuções ao mesmo tempo;
+- o código de saída é 0 quando dá certo e 1 quando falha;
+- o resumo e as falhas vão para `storage/logs/sincronizar-sga.log`.
+
+Use o mesmo PHP do site; no Virtualmin, por exemplo, `/usr/bin/php8.2`.
+
+## Plano B: exportar numa máquina e importar no servidor
+
+Quando o servidor não alcança o RDS, uma máquina que alcança (a estação Windows, por exemplo) gera o arquivo:
+
+```bash
+php bin/exportar-sga.php sga-export.json      # ou: Integração → Exportar dados do SGA (.json)
+```
+
+No servidor, use **Integração → Importar arquivo**. Validações antes de gravar qualquer coisa:
+- formato e versão do arquivo;
+- `sha256` dos dados (recusa arquivo alterado ou incompleto);
+- tamanho de até 50 MiB;
+- data de geração: recusa arquivo **mais antigo que a última carga concluída**.
+
+Compras e patrimônios entram na mesma transação: ou entram os dois, ou nada muda.
+
+## Salvaguardas de dados
+
+- **Fotografia completa:** a sincronização direta e a importação por arquivo marcam como ausentes (`origem_presente=0`, conciliação pendente) as compras e os patrimônios que não voltaram.
+- **Consulta parcial:** se a origem devolver menos da metade da base presente (com 100 ou mais registros), a carga é abortada e nada muda. Isso protege contra queda no meio da consulta ou filtro errado.
+- **Atomicidade:** compras e patrimônios entram na mesma transação, e uma falha desfaz os dois. A falha fica registrada em "Últimas execuções".
+- **Concorrência:** travas `GET_LOCK` no MariaDB e `flock` no cron.
 
 ## Resultado na estação Windows (04/11/2026, funcionando)
 
@@ -92,7 +175,7 @@ Confira também as permissões: o usuário do PHP-FPM do domínio precisa ler `.
 Na raiz da aplicação, como o usuário do domínio:
 
 ```bash
-php -r 'require "app/bootstrap.php"; try { var_dump(App\Services\Integracao::executarSql("SELECT 1 AS ok")); } catch (Throwable $e) { for ($x=$e; $x; $x=$x->getPrevious()) echo get_class($x), ": ", $x->getMessage(), PHP_EOL; }'
+php bin/sincronizar-sga.php --diagnostico
 ```
 
 A saída mostra a mensagem real (rede, login, certificado ou driver). Se funcionar no terminal e falhar no site, a diferença está no PHP-FPM do domínio: versão, extensões ou usuário (volte ao item 2).
@@ -102,7 +185,11 @@ A saída mostra a mensagem real (rede, login, certificado ou driver). Se funcion
 | Mensagem | Causa provável | Item |
 |---|---|---|
 | Configure a conexão ao Minerion primeiro. | `storage/sga.json` ausente | salvar a conexão na tela |
-| Habilite pdo_sqlsrv neste PHP. | Linux sem driver | 2 |
+| Nenhum driver SQL Server disponível. (etapa: driver) | Linux sem `sqlsrv`, `dblib` ou `odbc` | 2 |
+| ...(etapa: rede) | Security Group, VPN, firewall ou rota | 1 |
+| ...(etapa: dns) | DNS do servidor não resolve o RDS | 1, ou usar IP fixo |
+| ...menos da metade ... consulta parcial | origem devolveu poucos registros | conferir a consulta e repetir |
+| Arquivo gerado em ..., anterior à última carga | arquivo antigo | exportar de novo |
 | Não foi possível ler a senha armazenada. | `APP_KEY` diferente ou `sga.json` copiado | 4 |
 | Login timeout expired / TCP Provider | rede, Security Group ou VPN | 1 |
 | certificate verify failed | TLS do ODBC 18 | 3 |

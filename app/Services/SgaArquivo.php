@@ -27,10 +27,9 @@ final class SgaArquivo {
         // UNIX_TIMESTAMP usa o fuso da sessão do banco, o mesmo de NOW(): evita erro de fuso entre PHP e MariaDB.
         $ultima=\App\Core\Database::one("SELECT UNIX_TIMESTAMP(MAX(inicio)) t FROM sincronizacoes WHERE situacao='concluida' AND fonte IN ('sga','arquivo')")['t']??null;
         if($ultima && $gerado<(int)$ultima) throw new RuntimeException('Arquivo gerado em '.date('d/m/Y H:i',$gerado).', anterior à última carga concluída ('.date('d/m/Y H:i',(int)$ultima).'). Exporte novamente.');
-        PatrimoniosSga::normalizar($patrimonios);
-        $n=Integracao::importar($compras,'arquivo',$actor);
-        try { $stats=PatrimoniosSga::importar($patrimonios,'arquivo',$actor); }
-        catch(\Throwable $e) { throw new RuntimeException('Compras importadas; associação patrimonial não concluída. O levantamento anterior foi preservado.',0,$e); }
+        if(!PatrimoniosSga::normalizar($patrimonios)) throw new RuntimeException('Arquivo sem patrimônios válidos; importação não iniciada.');
+        // Mesma atomicidade da sincronização direta: compras e patrimônios entram juntos ou nada muda.
+        [$n,$stats]=\App\Core\Database::transaction(static fn(): array=>[Integracao::importar($compras,'arquivo',$actor),PatrimoniosSga::importar($patrimonios,'arquivo',$actor)]);
         return ['compras'=>$n,'patrimonios'=>$stats,'gerado_em'=>(string)($d['gerado_em']??''),'origem'=>(string)($d['origem']??'')];
     }
 }
